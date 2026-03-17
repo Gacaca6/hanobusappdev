@@ -38,6 +38,11 @@ export const translations = {
     delay: 'Delay',
     nextStop: 'Next stop',
 
+    // Home - Nearest stop
+    nearestStop: 'Nearest stop',
+    routesServing: 'Routes here',
+    enableLocation: 'Enable location to see nearby stops',
+
     // Bottom Sheet
     whereTo: 'Where to?',
     searchPlaceholder: 'Search destination (e.g. Kimironko Market)',
@@ -204,6 +209,11 @@ export const translations = {
     onTime: 'Ku Gihe',
     delay: 'Gutinda',
     nextStop: 'Ahantu hakurikira',
+
+    // Home - Nearest stop
+    nearestStop: 'Ahegereye',
+    routesServing: 'Amagare aha',
+    enableLocation: 'Fungura aho uherereye kugira ngo ubone amagare yegereye',
 
     // Bottom Sheet
     whereTo: 'Ugiye he?',

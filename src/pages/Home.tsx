@@ -1,18 +1,59 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { calculateETA } from '../services/transitService';
-import { useBusSimulation, SimulatedBus } from '../services/busSimulation';
+import { useBusSimulation } from '../services/busSimulation';
 import Map from '../components/Map';
 import BottomSheet from '../components/BottomSheet';
-import { Bell, X, Bus, Clock, Navigation } from 'lucide-react';
+import { Bell, X, Bus, Clock, Navigation, MapPin, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../i18n/useTranslation';
+import { ALL_ROUTES } from '../data/hanobus_routes';
+
+// Build stop index (same pattern as BottomSheet)
+interface StopEntry {
+  name: string;
+  lat: number;
+  lng: number;
+  routes: { id: string; code: string; color: string; avgHeadwayMin: number }[];
+}
+
+const stopIndex: StopEntry[] = (() => {
+  const map = new Map<string, StopEntry>();
+  ALL_ROUTES.forEach(route => {
+    route.stops.forEach(stop => {
+      if (!map.has(stop.name)) {
+        map.set(stop.name, { name: stop.name, lat: stop.lat, lng: stop.lng, routes: [] });
+      }
+      const entry = map.get(stop.name)!;
+      if (!entry.routes.some(r => r.id === route.id)) {
+        entry.routes.push({ id: route.id, code: route.code, color: route.color, avgHeadwayMin: route.avgHeadwayMin });
+      }
+    });
+  });
+  return Array.from(map.values());
+})();
+
+// Haversine distance in meters
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export default function Home() {
   const { alerts, searchedLocation, setRoutePolyline, busStops, routes, selectedBus, setSelectedBus } = useStore();
   const simulatedBuses = useBusSimulation();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
   const [showBusCard, setShowBusCard] = useState(false);
+  const [showLocationBanner, setShowLocationBanner] = useState(true);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Convert simulated buses to the shape the map & UI expect
   const busesWithETA = useMemo(() => {
@@ -25,7 +66,6 @@ export default function Home() {
       nextStop: bus.nextStop,
       isDeviating: bus.isDeviating,
       eta: bus.estimatedArrivalMin,
-      // Extra fields for colored markers & popups
       routeColor: bus.routeColor,
       routeCode: bus.routeCode,
       routeName: bus.routeName,
@@ -42,6 +82,27 @@ export default function Home() {
     }).slice(0, 5);
   }, [busesWithETA, userLocation]);
 
+  // Find nearest stop to user
+  const nearestStop = useMemo(() => {
+    if (!userLocation) return null;
+    let best: StopEntry | null = null;
+    let bestDist = Infinity;
+    for (const stop of stopIndex) {
+      const dist = haversineMeters(userLocation[0], userLocation[1], stop.lat, stop.lng);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = stop;
+      }
+    }
+    if (!best) return null;
+    const minHeadway = Math.min(...best.routes.map(r => r.avgHeadwayMin));
+    return {
+      ...best,
+      distanceM: Math.round(bestDist),
+      minHeadway,
+    };
+  }, [userLocation]);
+
   useEffect(() => {
     let watchId: number;
     if (navigator.geolocation) {
@@ -49,13 +110,19 @@ export default function Home() {
         (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
+          setLocationDenied(false);
           if (lat > -3.0 && lat < -0.8 && lng > 28.5 && lng < 31.0) {
             setUserLocation([lat, lng]);
           } else {
             setUserLocation(null);
           }
         },
-        (error) => console.error("Error getting location", error),
+        (error) => {
+          console.error('Geolocation error:', error.code, error.message);
+          if (error.code === error.PERMISSION_DENIED) {
+            setLocationDenied(true);
+          }
+        },
         { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
       );
     }
@@ -110,12 +177,27 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Location denied banner */}
+      {locationDenied && showLocationBanner && (
+        <div className="absolute top-20 left-4 right-4 z-10 pointer-events-auto">
+          <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-gray-500 shrink-0" />
+              <p className="text-xs text-gray-600">{t('enableLocation')}</p>
+            </div>
+            <button onClick={() => setShowLocationBanner(false)} className="p-0.5 hover:bg-gray-200 rounded-full shrink-0 ml-2">
+              <X className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Nearby Buses Quick Info */}
-      {nearestBuses.length > 0 && !showBusCard && (
+      {nearestBuses.length > 0 && !showBusCard && !locationDenied && (
         <div className="absolute top-20 left-4 right-4 z-10 pointer-events-auto">
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-3">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Nearby Buses</h3>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('nearbyBuses')}</h3>
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             </div>
             <div className="flex gap-2 overflow-x-auto">
@@ -152,6 +234,52 @@ export default function Home() {
       {/* Map Layer */}
       <Map userLocation={userLocation} buses={busesWithETA} onBusClick={handleBusClick} />
 
+      {/* Nearest Stop Card */}
+      {nearestStop && !showBusCard && !searchedLocation && (
+        <div className="absolute bottom-52 left-4 right-4 z-10 pointer-events-auto">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-3 border border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center shrink-0">
+                <MapPin className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500 font-medium">{t('nearestStop')}</p>
+                  <span className="text-[10px] text-gray-400">
+                    {nearestStop.distanceM >= 1000
+                      ? `${(nearestStop.distanceM / 1000).toFixed(1)} km`
+                      : `${nearestStop.distanceM}m`
+                    }
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-gray-900 truncate">{nearestStop.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-1">
+                    {nearestStop.routes.slice(0, 5).map(r => (
+                      <span
+                        key={r.id}
+                        className="px-1.5 py-0.5 text-[9px] font-bold rounded"
+                        style={{ backgroundColor: r.color + '20', color: r.color }}
+                      >
+                        {r.code}
+                      </span>
+                    ))}
+                    {nearestStop.routes.length > 5 && (
+                      <span className="text-[9px] text-gray-400">+{nearestStop.routes.length - 5}</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-gray-400">•</span>
+                  <div className="flex items-center gap-0.5">
+                    <Clock className="w-2.5 h-2.5 text-green-600" />
+                    <span className="text-[10px] text-green-700 font-semibold">~{nearestStop.minHeadway} min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Selected Bus Detail Card */}
       {showBusCard && selectedBusData && (
         <div className="absolute bottom-20 left-4 right-4 z-10 pointer-events-auto">
@@ -182,26 +310,26 @@ export default function Home() {
               <div className="bg-blue-50 rounded-xl p-3 text-center">
                 <Clock className="w-5 h-5 text-blue-600 mx-auto mb-1" />
                 <p className="text-lg font-bold text-blue-700">{selectedBusData.eta || '--'}</p>
-                <p className="text-[10px] text-blue-500 uppercase">Min ETA</p>
+                <p className="text-[10px] text-blue-500 uppercase">{t('minETA')}</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-3 text-center">
                 <Navigation className="w-5 h-5 text-gray-600 mx-auto mb-1" />
                 <p className="text-lg font-bold text-gray-700">{Math.round(selectedBusData.speedKmH || 0)}</p>
-                <p className="text-[10px] text-gray-500 uppercase">km/h</p>
+                <p className="text-[10px] text-gray-500 uppercase">{t('kmh')}</p>
               </div>
               <div className={`rounded-xl p-3 text-center ${selectedBusData.isDeviating ? 'bg-orange-50' : 'bg-green-50'}`}>
                 <div className={`w-5 h-5 mx-auto mb-1 rounded-full ${selectedBusData.isDeviating ? 'bg-orange-400' : 'bg-green-400'}`} />
                 <p className={`text-xs font-bold ${selectedBusData.isDeviating ? 'text-orange-700' : 'text-green-700'}`}>
-                  {selectedBusData.isDeviating ? 'Delay' : 'On Time'}
+                  {selectedBusData.isDeviating ? t('delay') : t('onTime')}
                 </p>
-                <p className="text-[10px] text-gray-500 uppercase">Status</p>
+                <p className="text-[10px] text-gray-500 uppercase">{t('status')}</p>
               </div>
             </div>
 
             <div className="mt-3 flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
               <div className="w-2 h-2 bg-green-500 rounded-full" />
               <p className="text-sm text-gray-700">
-                Next stop: <span className="font-semibold">{selectedBusData.nextStop}</span>
+                {t('nextStop')}: <span className="font-semibold">{selectedBusData.nextStop}</span>
               </p>
             </div>
           </div>
