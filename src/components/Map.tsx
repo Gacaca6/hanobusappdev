@@ -61,7 +61,8 @@ interface MapProps {
   onBusClick?: (bus: any) => void;
 }
 
-export default function MapComponent({ userLocation, buses, onBusClick }: MapProps) {
+export default function MapComponent(props: MapProps) {
+  const { userLocation = null, buses = [], onBusClick } = props || {};
   const { searchedLocation, busStops, routePolyline, routes } = useStore();
   const [selectedStop, setSelectedStop] = React.useState<any>(null);
   const [selectedBus, setSelectedBus] = React.useState<any>(null);
@@ -222,7 +223,8 @@ export default function MapComponent({ userLocation, buses, onBusClick }: MapPro
 }
 
 // Fallback to Leaflet if no Google Maps API key
-function FallbackMap({ userLocation, buses, onBusClick }: MapProps) {
+function FallbackMap(props: MapProps) {
+  const { userLocation = null, buses = [], onBusClick } = props || {};
   const { searchedLocation, busStops, routePolyline, routes } = useStore();
   const mapRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
