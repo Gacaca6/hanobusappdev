@@ -1,0 +1,7 @@
+{
+  "name": "HanoBus",
+  "description": "A smart public transportation companion for Kigali commuters, providing real-time bus tracking, route planning, and ETAs.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

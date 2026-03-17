@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A commuter using the HanoBus app.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID." },
+        "name": { "type": "string", "description": "The user's display name." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user account was created." },
+        "role": { "type": "string", "enum": ["commuter", "admin"], "description": "The user's role." }
+      },
+      "required": ["uid", "name", "email", "createdAt", "role"]
+    },
+    "Route": {
+      "title": "Route",
+      "description": "A predefined bus route in Kigali.",
+      "type": "object",
+      "properties": {
+        "routeName": { "type": "string", "description": "The name of the route (e.g., Nyabugogo -> Remera)." },
+        "startLocation": { "type": "string", "description": "The starting stop." },
+        "endLocation": { "type": "string", "description": "The final stop." },
+        "distanceKm": { "type": "number", "description": "Total distance in kilometers." },
+        "avgTravelTimeMins": { "type": "number", "description": "Average travel time in minutes." }
+      },
+      "required": ["routeName", "startLocation", "endLocation"]
+    },
+    "Bus": {
+      "title": "Bus",
+      "description": "A live bus currently on a route.",
+      "type": "object",
+      "properties": {
+        "routeId": { "type": "string", "description": "The ID of the route this bus is on." },
+        "latitude": { "type": "number", "description": "Current latitude." },
+        "longitude": { "type": "number", "description": "Current longitude." },
+        "speedKmH": { "type": "number", "description": "Current speed in km/h." },
+        "lastUpdated": { "type": "string", "format": "date-time", "description": "When the location was last updated." },
+        "nextStop": { "type": "string", "description": "The next upcoming stop." }
+      },
+      "required": ["routeId", "latitude", "longitude", "lastUpdated"]
+    },
+    "Alert": {
+      "title": "Alert",
+      "description": "A notification about route delays or disruptions.",
+      "type": "object",
+      "properties": {
+        "message": { "type": "string", "description": "The alert message." },
+        "routeId": { "type": "string", "description": "The ID of the affected route (optional)." },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"], "description": "The severity of the alert." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the alert was issued." }
+      },
+      "required": ["message", "severity", "timestamp"]
+    },
+    "BusStop": {
+      "title": "BusStop",
+      "description": "An official bus stop location.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the bus stop." },
+        "latitude": { "type": "number", "description": "Latitude of the stop." },
+        "longitude": { "type": "number", "description": "Longitude of the stop." },
+        "routeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs of routes that pass through this stop."
+        }
+      },
+      "required": ["name", "latitude", "longitude"]
+    },
+    "FavoriteRoute": {
+      "title": "FavoriteRoute",
+      "description": "A user's saved favorite route.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user." },
+        "routeId": { "type": "string", "description": "The ID of the saved route." },
+        "savedAt": { "type": "string", "format": "date-time", "description": "When the route was saved." }
+      },
+      "required": ["userId", "routeId", "savedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles."
+    },
+    "/routes/{routeId}": {
+      "schema": { "$ref": "#/entities/Route" },
+      "description": "Stores predefined bus routes."
+    },
+    "/buses/{busId}": {
+      "schema": { "$ref": "#/entities/Bus" },
+      "description": "Stores live bus locations."
+    },
+    "/alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/Alert" },
+      "description": "Stores system-wide or route-specific alerts."
+    },
+    "/busStops/{stopId}": {
+      "schema": { "$ref": "#/entities/BusStop" },
+      "description": "Stores official bus stop locations."
+    },
+    "/users/{userId}/favorites/{favoriteId}": {
+      "schema": { "$ref": "#/entities/FavoriteRoute" },
+      "description": "Stores a user's favorite routes."
+    }
+  }
+}
