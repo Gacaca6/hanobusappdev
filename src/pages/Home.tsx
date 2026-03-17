@@ -1,21 +1,45 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { doc, getDocFromServer, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useStore } from '../store/useStore';
+import { calculateETA } from '../services/transitService';
 import Map from '../components/Map';
 import BottomSheet from '../components/BottomSheet';
-import { Menu, Bell, Play, Square } from 'lucide-react';
+import { Menu, Bell, Play, Square, X, Bus, Clock, Navigation, ChevronUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
-  const { buses, alerts, searchedLocation, setRoutePolyline, busStops, routes } = useStore();
+  const { buses, alerts, searchedLocation, setRoutePolyline, busStops, routes, selectedBus, setSelectedBus } = useStore();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [showBusCard, setShowBusCard] = useState(false);
   const busesRef = useRef(buses);
   const busPathsRef = useRef<Record<string, [number, number][]>>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     busesRef.current = buses;
   }, [buses]);
+
+  // Calculate ETAs for all buses relative to their next stop
+  const busesWithETA = useMemo(() => {
+    return buses.map(bus => {
+      const nextStop = busStops.find(s => s.name === bus.nextStop);
+      if (!nextStop) return bus;
+      const eta = calculateETA(bus.latitude, bus.longitude, nextStop.latitude, nextStop.longitude, bus.speedKmH || 20);
+      return { ...bus, eta };
+    });
+  }, [buses, busStops]);
+
+  // Find nearest buses to user
+  const nearestBuses = useMemo(() => {
+    if (!userLocation) return busesWithETA.slice(0, 3);
+    return [...busesWithETA].sort((a, b) => {
+      const distA = Math.hypot(a.latitude - userLocation[0], a.longitude - userLocation[1]);
+      const distB = Math.hypot(b.latitude - userLocation[0], b.longitude - userLocation[1]);
+      return distA - distB;
+    }).slice(0, 3);
+  }, [busesWithETA, userLocation]);
 
   useEffect(() => {
     if (isSimulating) {
@@ -52,20 +76,15 @@ export default function Home() {
             let newIsDeviating = bus.isDeviating || false;
             let displaySpeedKmH = bus.speedKmH || 0;
 
-            // 5% chance to toggle deviation/traffic state
             if (Math.random() < 0.05) {
               newIsDeviating = !newIsDeviating;
             }
 
             if (path && path.length > 0) {
               const nextPoint = path[0];
-              
-              // Base speed: ~0.0004 degrees per tick (normal traffic)
-              // Deviating/Heavy Traffic: ~0.00015 degrees per tick
               const baseSpeed = newIsDeviating ? 0.00015 : 0.0004;
-              // Add 20% random noise to simulate micro-traffic variations
-              const speed = baseSpeed * (0.8 + Math.random() * 0.4); 
-              
+              const speed = baseSpeed * (0.8 + Math.random() * 0.4);
+
               const dx = nextPoint[1] - bus.longitude;
               const dy = nextPoint[0] - bus.latitude;
               const distance = Math.sqrt(dx * dx + dy * dy);
@@ -78,15 +97,12 @@ export default function Home() {
                 newLng = nextPoint[1];
                 busPathsRef.current[bus.id] = path.slice(1);
               }
-              
-              // Calculate display speed in km/h (1 degree ~ 111km, tick is 3s)
               displaySpeedKmH = Math.round(speed * 111 * 1200);
             } else if (path && path.length === 0) {
-              // Reached destination, find next stop
               const route = routes.find(r => r.id === bus.routeId);
-              let routeStops = [];
+              let routeStops: any[] = [];
               if (route?.orderedStopIds) {
-                routeStops = route.orderedStopIds.map(id => busStops.find(s => s.id === id)).filter(Boolean) as any[];
+                routeStops = route.orderedStopIds.map(id => busStops.find(s => s.id === id)).filter(Boolean);
               } else {
                 routeStops = busStops.filter(s => s.routeIds?.includes(bus.routeId));
               }
@@ -96,8 +112,7 @@ export default function Home() {
                 const nextIndex = (currentIndex + 1) % routeStops.length;
                 const nextStop = routeStops[nextIndex];
                 newNextStop = nextStop.name;
-                
-                // Fetch new path
+
                 try {
                   const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${newLng},${newLat};${nextStop.longitude},${nextStop.latitude}?overview=full&geometries=geojson`);
                   const data = await res.json();
@@ -110,7 +125,6 @@ export default function Home() {
                 }
               }
             } else {
-              // Fallback if no path
               newLat += (Math.random() - 0.5) * 0.001;
               newLng += (Math.random() - 0.5) * 0.001;
             }
@@ -134,46 +148,27 @@ export default function Home() {
   }, [isSimulating, busStops, routes]);
 
   useEffect(() => {
-    async function testConnection() {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
-        }
-      }
-    }
-    testConnection();
-
     let watchId: number;
     if (navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          // Check if location is roughly within Rwanda (Lat: -2.8 to -1.0, Lng: 28.8 to 30.9)
           if (lat > -3.0 && lat < -0.8 && lng > 28.5 && lng < 31.0) {
             setUserLocation([lat, lng]);
           } else {
-            console.warn("User location is outside Rwanda. Defaulting to Kigali.");
-            // We could set it to null to use the default center, or a specific Kigali point
             setUserLocation(null);
           }
         },
-        (error) => {
-          console.error("Error getting location", error);
-        },
+        (error) => console.error("Error getting location", error),
         { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
       );
     }
-
-    return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-    };
+    return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
   }, []);
 
   useEffect(() => {
-    const startLoc = userLocation || [-1.9441, 30.0619]; // Default to Kigali center
+    const startLoc = userLocation || [-1.9441, 30.0619];
     if (searchedLocation) {
       const fetchRoute = async () => {
         try {
@@ -193,22 +188,32 @@ export default function Home() {
     }
   }, [userLocation, searchedLocation, setRoutePolyline]);
 
+  const handleBusClick = (bus: any) => {
+    setSelectedBus(bus);
+    setShowBusCard(true);
+  };
+
+  const selectedBusWithETA = selectedBus ? busesWithETA.find(b => b.id === selectedBus.id) : null;
+
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-gray-100">
-      {/* Top Navigation Bar Overlay */}
+    <div className="relative h-full w-full overflow-hidden bg-gray-100">
+      {/* Top Navigation Bar */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4 flex justify-between items-center pointer-events-none">
         <button className="h-12 w-12 bg-white rounded-full shadow-md flex items-center justify-center pointer-events-auto hover:bg-gray-50 transition-colors">
           <Menu className="h-6 w-6 text-gray-800" />
         </button>
         <div className="flex gap-2 pointer-events-auto">
-          <button 
+          <button
             onClick={() => setIsSimulating(!isSimulating)}
             className={`h-12 px-4 rounded-full shadow-md flex items-center gap-2 font-semibold transition-colors ${isSimulating ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
           >
             {isSimulating ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            <span className="hidden sm:inline">{isSimulating ? 'Stop Live' : 'Simulate Live'}</span>
+            <span className="hidden sm:inline">{isSimulating ? 'Stop' : 'Simulate'}</span>
           </button>
-          <button className="h-12 w-12 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors relative">
+          <button
+            onClick={() => navigate('/alerts')}
+            className="h-12 w-12 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors relative"
+          >
             <Bell className="h-6 w-6 text-gray-800" />
             {alerts.length > 0 && (
               <span className="absolute top-3 right-3 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white"></span>
@@ -217,11 +222,99 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Nearby Buses Quick Info */}
+      {nearestBuses.length > 0 && !showBusCard && (
+        <div className="absolute top-20 left-4 right-4 z-10 pointer-events-auto">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Nearby Buses</h3>
+              <div className={`w-2 h-2 rounded-full ${isSimulating ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+            </div>
+            <div className="flex gap-2 overflow-x-auto">
+              {nearestBuses.map(bus => {
+                const route = routes.find(r => r.id === bus.routeId);
+                return (
+                  <button
+                    key={bus.id}
+                    onClick={() => handleBusClick(bus)}
+                    className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 min-w-fit hover:bg-blue-50 transition-colors"
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bus.isDeviating ? 'bg-orange-100' : 'bg-green-100'}`}>
+                      <Bus className={`w-4 h-4 ${bus.isDeviating ? 'text-orange-600' : 'text-green-600'}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-semibold text-gray-900 whitespace-nowrap">
+                        {route?.routeName?.split(' - ')[0] || bus.routeId}
+                      </p>
+                      <p className="text-[10px] text-gray-500 flex items-center gap-0.5">
+                        <Clock className="w-2.5 h-2.5" />
+                        {bus.eta ? `${bus.eta} min` : '--'}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Map Layer */}
-      <Map userLocation={userLocation} buses={buses} />
+      <Map userLocation={userLocation} buses={busesWithETA} onBusClick={handleBusClick} />
+
+      {/* Selected Bus Detail Card */}
+      {showBusCard && selectedBusWithETA && (
+        <div className="absolute bottom-20 left-4 right-4 z-10 pointer-events-auto">
+          <div className="bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedBusWithETA.isDeviating ? 'bg-orange-100' : 'bg-green-100'}`}>
+                  <Bus className={`w-6 h-6 ${selectedBusWithETA.isDeviating ? 'text-orange-600' : 'text-green-600'}`} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">
+                    {routes.find(r => r.id === selectedBusWithETA.routeId)?.routeName || selectedBusWithETA.routeId}
+                  </h3>
+                  <p className="text-sm text-gray-500">{selectedBusWithETA.id.toUpperCase()}</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowBusCard(false); setSelectedBus(null); }} className="p-1 hover:bg-gray-100 rounded-full">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-blue-50 rounded-xl p-3 text-center">
+                <Clock className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-blue-700">{selectedBusWithETA.eta || '--'}</p>
+                <p className="text-[10px] text-blue-500 uppercase">Min ETA</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <Navigation className="w-5 h-5 text-gray-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-gray-700">{Math.round(selectedBusWithETA.speedKmH || 0)}</p>
+                <p className="text-[10px] text-gray-500 uppercase">km/h</p>
+              </div>
+              <div className={`rounded-xl p-3 text-center ${selectedBusWithETA.isDeviating ? 'bg-orange-50' : 'bg-green-50'}`}>
+                <div className={`w-5 h-5 mx-auto mb-1 rounded-full ${selectedBusWithETA.isDeviating ? 'bg-orange-400' : 'bg-green-400'}`} />
+                <p className={`text-xs font-bold ${selectedBusWithETA.isDeviating ? 'text-orange-700' : 'text-green-700'}`}>
+                  {selectedBusWithETA.isDeviating ? 'Delay' : 'On Time'}
+                </p>
+                <p className="text-[10px] text-gray-500 uppercase">Status</p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full" />
+              <p className="text-sm text-gray-700">
+                Next stop: <span className="font-semibold">{selectedBusWithETA.nextStop}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Sheet Overlay */}
-      <BottomSheet />
+      {!showBusCard && <BottomSheet />}
     </div>
   );
 }

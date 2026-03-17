@@ -2,32 +2,40 @@ import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import { useStore } from '../store/useStore';
-import { subscribeToRoutes, subscribeToBuses, subscribeToAlerts, subscribeToBusStops, seedDatabaseIfEmpty } from '../services/transitService';
+import { subscribeToRoutes, subscribeToBuses, subscribeToAlerts, subscribeToBusStops, subscribeToFavorites, seedDatabaseIfEmpty, Alert } from '../services/transitService';
+import { checkForNewAlerts } from '../services/notificationService';
 
 export default function Layout() {
-  const { setRoutes, setBuses, setAlerts, setBusStops } = useStore();
+  const { setRoutes, setBuses, setAlerts, setBusStops, setFavorites, user } = useStore();
 
   useEffect(() => {
-    // Seed database if empty (for demo purposes)
     seedDatabaseIfEmpty();
 
-    // Subscribe to real-time data
     const unsubscribeRoutes = subscribeToRoutes(setRoutes);
     const unsubscribeBuses = subscribeToBuses(setBuses);
-    const unsubscribeAlerts = subscribeToAlerts(setAlerts);
+    const unsubscribeAlerts = subscribeToAlerts((alerts: Alert[]) => {
+      setAlerts(alerts);
+      checkForNewAlerts(alerts);
+    });
     const unsubscribeBusStops = subscribeToBusStops(setBusStops);
+
+    let unsubscribeFavorites: (() => void) | undefined;
+    if (user) {
+      unsubscribeFavorites = subscribeToFavorites(user.uid, setFavorites);
+    }
 
     return () => {
       unsubscribeRoutes();
       unsubscribeBuses();
       unsubscribeAlerts();
       unsubscribeBusStops();
+      unsubscribeFavorites?.();
     };
-  }, [setRoutes, setBuses, setAlerts, setBusStops]);
+  }, [setRoutes, setBuses, setAlerts, setBusStops, setFavorites, user]);
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-gray-100">
-      <div className="h-full w-full pb-16">
+    <div className="fixed inset-0 flex flex-col bg-gray-100">
+      <div className="flex-1 overflow-y-auto pb-20">
         <Outlet />
       </div>
       <BottomNav />

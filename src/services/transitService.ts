@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDocs, onSnapshot, query, Timestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, deleteDoc, onSnapshot, query, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/errorHandler';
 
@@ -22,6 +22,7 @@ export interface Bus {
   lastUpdated: Timestamp;
   nextStop?: string;
   isDeviating?: boolean;
+  eta?: number;
 }
 
 export interface Alert {
@@ -38,6 +39,16 @@ export interface BusStop {
   latitude: number;
   longitude: number;
   routeIds?: string[];
+}
+
+export interface Favorite {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  type: 'home' | 'work' | 'other';
+  createdAt: Timestamp;
 }
 
 // Seed Data
@@ -75,11 +86,10 @@ const seedBusStops: BusStop[] = [
 
 export async function seedDatabaseIfEmpty() {
   if (!auth.currentUser) return;
-  
+
   try {
     const routesSnap = await getDocs(collection(db, 'routes'));
     if (routesSnap.empty) {
-      console.log('Seeding routes...');
       for (const route of seedRoutes) {
         await setDoc(doc(db, 'routes', route.id), route);
       }
@@ -87,7 +97,6 @@ export async function seedDatabaseIfEmpty() {
 
     const alertsSnap = await getDocs(collection(db, 'alerts'));
     if (alertsSnap.empty) {
-      console.log('Seeding alerts...');
       for (const alert of seedAlerts) {
         await setDoc(doc(db, 'alerts', alert.id), alert);
       }
@@ -95,7 +104,6 @@ export async function seedDatabaseIfEmpty() {
 
     const busesSnap = await getDocs(collection(db, 'buses'));
     if (busesSnap.empty) {
-      console.log('Seeding buses...');
       for (const bus of seedBuses) {
         await setDoc(doc(db, 'buses', bus.id), bus);
       }
@@ -103,7 +111,6 @@ export async function seedDatabaseIfEmpty() {
 
     const stopsSnap = await getDocs(collection(db, 'busStops'));
     if (stopsSnap.empty) {
-      console.log('Seeding bus stops...');
       for (const stop of seedBusStops) {
         await setDoc(doc(db, 'busStops', stop.id), stop);
       }
@@ -138,7 +145,6 @@ export function subscribeToAlerts(callback: (alerts: Alert[]) => void) {
   const q = query(collection(db, 'alerts'));
   return onSnapshot(q, (snapshot) => {
     const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Alert));
-    // Sort alerts by timestamp descending locally
     alerts.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
     callback(alerts);
   }, (error) => {
@@ -154,4 +160,48 @@ export function subscribeToBusStops(callback: (stops: BusStop[]) => void) {
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'busStops');
   });
+}
+
+// Favorites
+export function subscribeToFavorites(userId: string, callback: (favorites: Favorite[]) => void) {
+  const q = query(collection(db, 'users', userId, 'favorites'));
+  return onSnapshot(q, (snapshot) => {
+    const favorites = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Favorite));
+    callback(favorites);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, `users/${userId}/favorites`);
+  });
+}
+
+export async function addFavorite(userId: string, favorite: Omit<Favorite, 'id' | 'createdAt'>) {
+  const id = `fav-${Date.now()}`;
+  await setDoc(doc(db, 'users', userId, 'favorites', id), {
+    ...favorite,
+    createdAt: Timestamp.now(),
+  });
+  return id;
+}
+
+export async function removeFavorite(userId: string, favoriteId: string) {
+  await deleteDoc(doc(db, 'users', userId, 'favorites', favoriteId));
+}
+
+// ETA calculation using distance
+export function calculateETA(
+  busLat: number,
+  busLng: number,
+  stopLat: number,
+  stopLng: number,
+  speedKmH: number
+): number {
+  const R = 6371;
+  const dLat = (stopLat - busLat) * Math.PI / 180;
+  const dLng = (stopLng - busLng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(busLat * Math.PI / 180) * Math.cos(stopLat * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distKm = R * c;
+  const effectiveSpeed = Math.max(speedKmH || 20, 5);
+  return Math.max(1, Math.round((distKm / effectiveSpeed) * 60));
 }

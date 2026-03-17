@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
-import { Route, Bus, Alert, BusStop } from '../services/transitService';
+import { Route, Bus, Alert, BusStop, Favorite } from '../services/transitService';
+import { Language } from '../i18n/translations';
 
 interface Location {
   lat: number;
@@ -30,9 +31,19 @@ interface AppState {
   setBusStops: (stops: BusStop[]) => void;
   routePolyline: [number, number][] | null;
   setRoutePolyline: (polyline: [number, number][] | null) => void;
+  favorites: Favorite[];
+  setFavorites: (favorites: Favorite[]) => void;
+  selectedBus: Bus | null;
+  setSelectedBus: (bus: Bus | null) => void;
+  recentSearches: Location[];
+  addRecentSearch: (loc: Location) => void;
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  isOnline: boolean;
+  setIsOnline: (online: boolean) => void;
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   user: null,
   setUser: (user) => set({ user }),
   isAuthReady: false,
@@ -53,4 +64,23 @@ export const useStore = create<AppState>((set) => ({
   setBusStops: (stops) => set({ busStops: stops }),
   routePolyline: null,
   setRoutePolyline: (polyline) => set({ routePolyline: polyline }),
+  favorites: [],
+  setFavorites: (favorites) => set({ favorites }),
+  selectedBus: null,
+  setSelectedBus: (bus) => set({ selectedBus: bus }),
+  recentSearches: JSON.parse(localStorage.getItem('hanobus_recent_searches') || '[]'),
+  addRecentSearch: (loc) => {
+    const current = get().recentSearches;
+    const filtered = current.filter(s => s.name !== loc.name);
+    const updated = [loc, ...filtered].slice(0, 5);
+    localStorage.setItem('hanobus_recent_searches', JSON.stringify(updated));
+    set({ recentSearches: updated });
+  },
+  language: (localStorage.getItem('hanobus_language') as Language) || 'en',
+  setLanguage: (lang) => {
+    localStorage.setItem('hanobus_language', lang);
+    set({ language: lang });
+  },
+  isOnline: navigator.onLine,
+  setIsOnline: (online) => set({ isOnline: online }),
 }));

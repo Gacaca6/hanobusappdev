@@ -2,21 +2,24 @@ import React from 'react';
 import { Home, Map as MapIcon, Bell, Heart, User } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from '../i18n/useTranslation';
+import { TranslationKey } from '../i18n/translations';
 
 export default function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
-  const navItems = [
-    { id: '/', icon: Home, label: 'Home' },
-    { id: '/routes', icon: MapIcon, label: 'Routes' },
-    { id: '/alerts', icon: Bell, label: 'Alerts' },
-    { id: '/favorites', icon: Heart, label: 'Favorites' },
-    { id: '/profile', icon: User, label: 'Profile' },
+  const navItems: { id: string; icon: typeof Home; labelKey: TranslationKey }[] = [
+    { id: '/', icon: Home, labelKey: 'home' },
+    { id: '/routes', icon: MapIcon, labelKey: 'routes' },
+    { id: '/alerts', icon: Bell, labelKey: 'alerts' },
+    { id: '/favorites', icon: Heart, labelKey: 'favorites' },
+    { id: '/profile', icon: User, labelKey: 'profile' },
   ];
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 z-20 flex items-center justify-around px-2 pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 z-50 flex items-center justify-around px-2 pb-safe">
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.id;
@@ -30,7 +33,7 @@ export default function BottomNav() {
             )}
           >
             <Icon className={clsx("h-6 w-6", isActive && "fill-blue-100")} />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
           </button>
         );
       })}

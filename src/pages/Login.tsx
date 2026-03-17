@@ -1,16 +1,28 @@
 import React from 'react';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, signInAnonymously, GoogleAuthProvider, getRedirectResult } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import { Bus } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/errorHandler';
+import { useTranslation } from '../i18n/useTranslation';
 
 export default function Login() {
+  const { t } = useTranslation();
   const handleGoogleSignIn = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
+      let result;
+      try {
+        result = await signInWithPopup(auth, provider);
+      } catch (popupError: any) {
+        // If popup is blocked, fall back to redirect
+        if (popupError?.code === 'auth/popup-blocked' || popupError?.code === 'auth/cancelled-popup-request') {
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw popupError;
+      }
       const user = result.user;
 
       // Check if user exists in Firestore
@@ -37,9 +49,22 @@ export default function Login() {
           handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing in with Google', error);
-      alert('Failed to sign in. Please try again.');
+      if (error?.code === 'auth/unauthorized-domain') {
+        alert('Google sign-in is not configured for this domain. Use "Continue as Guest" to test the app.');
+      } else {
+        alert('Failed to sign in. Please try again.');
+      }
+    }
+  };
+
+  const handleGuestSignIn = async () => {
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error('Error signing in as guest', error);
+      alert('Guest sign-in failed. Please enable Anonymous auth in Firebase Console.');
     }
   };
 
@@ -56,7 +81,7 @@ export default function Login() {
         </div>
         <h1 className="text-5xl font-extrabold tracking-tight mb-2">HanoBus</h1>
         <p className="text-blue-100 text-lg text-center max-w-xs">
-          Your smart public transportation companion in Kigali.
+          {t('appTagline')}
         </p>
       </motion.div>
 
@@ -89,11 +114,18 @@ export default function Login() {
             />
             <path fill="none" d="M1 1h22v22H1z" />
           </svg>
-          Continue with Google
+          {t('continueWithGoogle')}
         </button>
-        
+
+        <button
+          onClick={handleGuestSignIn}
+          className="w-full mt-4 bg-white/10 text-white font-semibold py-3 px-6 rounded-2xl hover:bg-white/20 transition-all flex items-center justify-center gap-2 border border-white/30"
+        >
+          {t('continueAsGuest')}
+        </button>
+
         <p className="text-center text-blue-200 text-sm mt-8">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
+          {t('termsNotice')}
         </p>
       </motion.div>
     </div>

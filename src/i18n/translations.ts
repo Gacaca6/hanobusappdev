@@ -1,0 +1,264 @@
+export const translations = {
+  en: {
+    // Navigation
+    home: 'Home',
+    routes: 'Routes',
+    alerts: 'Alerts',
+    favorites: 'Favorites',
+    profile: 'Profile',
+
+    // Splash & Onboarding
+    smarterCommutes: 'Smarter commutes for Kigali',
+    trackBusesLive: 'Track Buses Live',
+    trackBusesDesc: 'See real-time bus locations across Kigali. Know exactly where your bus is and when it will arrive.',
+    planYourTrip: 'Plan Your Trip',
+    planTripDesc: 'Search any destination and find the best bus routes to get there with estimated travel times.',
+    getAccurateETAs: 'Get Accurate ETAs',
+    getETAsDesc: 'Real-time arrival predictions based on bus speed and traffic conditions. No more guessing.',
+    stayInformed: 'Stay Informed',
+    stayInformedDesc: 'Get alerts about delays, route changes, and service disruptions before they affect your commute.',
+    skip: 'Skip',
+    next: 'Next',
+    getStarted: 'Get Started',
+
+    // Login
+    appTagline: 'Your smart public transportation companion in Kigali.',
+    continueWithGoogle: 'Continue with Google',
+    continueAsGuest: 'Continue as Guest',
+    termsNotice: 'By continuing, you agree to our Terms of Service and Privacy Policy.',
+
+    // Home
+    nearbyBuses: 'Nearby Buses',
+    simulate: 'Simulate',
+    stop: 'Stop',
+    minETA: 'Min ETA',
+    kmh: 'km/h',
+    status: 'Status',
+    onTime: 'On Time',
+    delay: 'Delay',
+    nextStop: 'Next stop',
+
+    // Bottom Sheet
+    whereTo: 'Where to?',
+    searchPlaceholder: 'Search destination (e.g. Kimironko Market)',
+    recentSearches: 'Recent Searches',
+    popularStops: 'Popular Stops',
+    suggestedRoutes: 'Suggested Routes',
+    nearStop: 'Near',
+    activeBuses: 'active buses',
+    heavyTraffic: 'Heavy traffic',
+
+    // Routes Page
+    busRoutes: 'Bus Routes',
+    findYourWay: 'Find your way across Kigali',
+    searchRoutes: 'Search routes...',
+    activeBusesLabel: 'Active Buses',
+    stops: 'Stops',
+    noActiveBuses: 'No active buses on this route',
+    noRoutesFound: 'No routes found matching your search.',
+    bus: 'bus',
+    busesPlural: 'buses',
+
+    // Alerts Page
+    serviceAlerts: 'Service Alerts',
+    stayUpdated: 'Stay updated on your commute',
+    criticalAlert: 'Critical Alert',
+    warning: 'Warning',
+    info: 'Info',
+    justNow: 'Just now',
+    minsAgo: 'mins ago',
+    hoursAgo: 'hours ago',
+    daysAgo: 'days ago',
+    noAlerts: 'No active alerts at this time.',
+
+    // Favorites Page
+    yourSavedLocations: 'Your saved locations',
+    addNewFavorite: 'Add New Favorite',
+    namePlaceholder: 'Name (e.g. Home, Office)',
+    addressPlaceholder: 'Address (optional)',
+    selectNearestStop: 'Select nearest bus stop (optional)',
+    homeType: 'home',
+    workType: 'work',
+    otherType: 'other',
+    saveFavorite: 'Save Favorite',
+    saving: 'Saving...',
+    noFavorites: 'No favorites yet',
+    tapToAdd: 'Tap + to save your frequent locations',
+
+    // Profile Page
+    profileTitle: 'Profile',
+    paymentMethods: 'Payment Methods',
+    settings: 'Settings',
+    helpSupport: 'Help & Support',
+    signOut: 'Sign Out',
+    commuter: 'Commuter',
+    language: 'Language',
+
+    // Admin
+    adminPanel: 'Admin Panel',
+    manageRoutes: 'Manage Routes',
+    manageBuses: 'Manage Buses',
+    manageAlerts: 'Manage Alerts',
+    addRoute: 'Add Route',
+    addBus: 'Add Bus',
+    addAlert: 'Add Alert',
+    edit: 'Edit',
+    delete: 'Delete',
+    save: 'Save',
+    cancel: 'Cancel',
+    routeName: 'Route Name',
+    startLocation: 'Start Location',
+    endLocation: 'End Location',
+    message: 'Message',
+    severity: 'Severity',
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    confirmDelete: 'Are you sure you want to delete this?',
+
+    // Offline
+    offlineTitle: 'You are offline',
+    offlineMessage: 'Some features may be limited. Data will sync when you reconnect.',
+    backOnline: 'Back online',
+
+    // Notifications
+    notifications: 'Notifications',
+    enableNotifications: 'Enable Notifications',
+    notificationsEnabled: 'Notifications are enabled',
+    notificationsDisabled: 'Notifications are disabled',
+    notificationPermissionDenied: 'Notification permission was denied. Enable it in browser settings.',
+  },
+
+  rw: {
+    // Navigation
+    home: 'Ahabanza',
+    routes: 'Inzira',
+    alerts: 'Amakuru',
+    favorites: 'Ibyiza',
+    profile: 'Umwirondoro',
+
+    // Splash & Onboarding
+    smarterCommutes: 'Ingendo zinoze muri Kigali',
+    trackBusesLive: 'Kurikirana Bisi ku Gihe',
+    trackBusesDesc: 'Reba aho bisi ziri muri Kigali ku gihe nyacyo. Menya neza aho bisi yawe iri n\'igihe izagera.',
+    planYourTrip: 'Tegura Urugendo Rwawe',
+    planTripDesc: 'Shakisha aho ugiye ubonemo inzira nziza za bisi hamwe n\'igihe cy\'urugendo.',
+    getAccurateETAs: 'Kubona Igihe Nyacyo',
+    getETAsDesc: 'Igihe cyo kugera kigenwa n\'umuvuduko wa bisi n\'imimerere y\'umuhanda. Nta gusubiramo.',
+    stayInformed: 'Komeza Umenye',
+    stayInformedDesc: 'Kubona amakuru ku bwatindagira, impinduka z\'inzira, na serivisi mbere y\'uko bigukubita.',
+    skip: 'Simbuka',
+    next: 'Komeza',
+    getStarted: 'Tangira',
+
+    // Login
+    appTagline: 'Umufasha wawe w\'ubwikorezi rusange muri Kigali.',
+    continueWithGoogle: 'Komeza na Google',
+    continueAsGuest: 'Komeza nk\'Umushyitsi',
+    termsNotice: 'Ukomeje, wemera amabwiriza yacu n\'amategeko y\'ibanga.',
+
+    // Home
+    nearbyBuses: 'Bisi Zegeranye',
+    simulate: 'Gukoresha',
+    stop: 'Hagarika',
+    minETA: 'Iminota',
+    kmh: 'km/h',
+    status: 'Imimerere',
+    onTime: 'Ku Gihe',
+    delay: 'Gutinda',
+    nextStop: 'Ahantu hakurikira',
+
+    // Bottom Sheet
+    whereTo: 'Ugiye he?',
+    searchPlaceholder: 'Shakisha aho ugiye (urugero: Isoko rya Kimironko)',
+    recentSearches: 'Ubushakashatsi Bushya',
+    popularStops: 'Ahantu Hazwi',
+    suggestedRoutes: 'Inzira Zateganijwe',
+    nearStop: 'Hafi ya',
+    activeBuses: 'bisi zikora',
+    heavyTraffic: 'Umuhanda ufite ikibazo',
+
+    // Routes Page
+    busRoutes: 'Inzira za Bisi',
+    findYourWay: 'Shaka inzira yawe muri Kigali',
+    searchRoutes: 'Shakisha inzira...',
+    activeBusesLabel: 'Bisi Zikora',
+    stops: 'Amagarama',
+    noActiveBuses: 'Nta bisi zikora kuri iyi nzira',
+    noRoutesFound: 'Nta nzira zibonetse zijyanye n\'ubushakashatsi bwawe.',
+    bus: 'bisi',
+    busesPlural: 'bisi',
+
+    // Alerts Page
+    serviceAlerts: 'Amakuru ya Serivisi',
+    stayUpdated: 'Komeza kumenya ku rugendo rwawe',
+    criticalAlert: 'Ikintu Gikomeye',
+    warning: 'Umburira',
+    info: 'Amakuru',
+    justNow: 'Ubu nyine',
+    minsAgo: 'iminota ishize',
+    hoursAgo: 'amasaha ashize',
+    daysAgo: 'iminsi ishize',
+    noAlerts: 'Nta makuru y\'amakuru ubu.',
+
+    // Favorites Page
+    yourSavedLocations: 'Ahantu wabitse',
+    addNewFavorite: 'Ongeraho Ahantu Hashya',
+    namePlaceholder: 'Izina (urugero: Urugo, Akazi)',
+    addressPlaceholder: 'Aderesi (ntibisabwa)',
+    selectNearestStop: 'Hitamo ahantu ha bisi hafi (ntibisabwa)',
+    homeType: 'urugo',
+    workType: 'akazi',
+    otherType: 'ibindi',
+    saveFavorite: 'Bika',
+    saving: 'Birimo kubikwa...',
+    noFavorites: 'Nta hantu wabitse',
+    tapToAdd: 'Kanda + kugira ngo ubike ahantu ujya kenshi',
+
+    // Profile Page
+    profileTitle: 'Umwirondoro',
+    paymentMethods: 'Uburyo bwo Kwishyura',
+    settings: 'Igenamiterere',
+    helpSupport: 'Ubufasha n\'Inkunga',
+    signOut: 'Gusohoka',
+    commuter: 'Ugendera',
+    language: 'Ururimi',
+
+    // Admin
+    adminPanel: 'Icyicaro cy\'Umuyobozi',
+    manageRoutes: 'Gucunga Inzira',
+    manageBuses: 'Gucunga Bisi',
+    manageAlerts: 'Gucunga Amakuru',
+    addRoute: 'Ongeraho Inzira',
+    addBus: 'Ongeraho Bisi',
+    addAlert: 'Ongeraho Amakuru',
+    edit: 'Hindura',
+    delete: 'Siba',
+    save: 'Bika',
+    cancel: 'Hagarika',
+    routeName: 'Izina ry\'Inzira',
+    startLocation: 'Aho Utangirira',
+    endLocation: 'Aho Ugera',
+    message: 'Ubutumwa',
+    severity: 'Urugero',
+    low: 'Buke',
+    medium: 'Hagati',
+    high: 'Byinshi',
+    confirmDelete: 'Uzi neza ko ushaka gusiba ibi?',
+
+    // Offline
+    offlineTitle: 'Ntabwo uri ku murongo',
+    offlineMessage: 'Ibintu bimwe bishobora kuba bike. Amakuru azahuzwa nongere uhuze.',
+    backOnline: 'Wasubiye ku murongo',
+
+    // Notifications
+    notifications: 'Amakuru',
+    enableNotifications: 'Gufungura Amakuru',
+    notificationsEnabled: 'Amakuru arafunguye',
+    notificationsDisabled: 'Amakuru arafunze',
+    notificationPermissionDenied: 'Uruhushya rw\'amakuru rwarangiwe. Rufungure mu igenamiterere rya mushakisha.',
+  },
+} as const;
+
+export type Language = keyof typeof translations;
+export type TranslationKey = keyof typeof translations.en;

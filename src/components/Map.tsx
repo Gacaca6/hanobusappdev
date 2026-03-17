@@ -1,175 +1,326 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import React, { useEffect, useRef, useCallback } from 'react';
+import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { useStore } from '../store/useStore';
 
-// Fix for default marker icons in React Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || '';
+const KIGALI_CENTER = { lat: -1.9441, lng: 30.0619 };
 
-const busIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const deviatingBusIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const searchIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const stopIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [20, 32],
-  iconAnchor: [10, 32],
-  popupAnchor: [1, -28],
-  shadowSize: [32, 32]
-});
-
-const userIcon = new L.DivIcon({
-  className: 'custom-user-icon',
-  html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8]
-});
-
-function MapUpdater({ center, polyline }: { center: [number, number], polyline: [number, number][] | null }) {
+function RoutePolyline({ path }: { path: [number, number][] }) {
   const map = useMap();
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
+
   useEffect(() => {
-    if (polyline && polyline.length > 0) {
-      const bounds = L.latLngBounds(polyline);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    } else {
-      map.setView(center, map.getZoom());
+    if (!map || !path || path.length === 0) return;
+
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
     }
-  }, [center, polyline, map]);
+
+    polylineRef.current = new google.maps.Polyline({
+      path: path.map(([lat, lng]) => ({ lat, lng })),
+      geodesic: true,
+      strokeColor: '#3b82f6',
+      strokeOpacity: 0.8,
+      strokeWeight: 5,
+    });
+    polylineRef.current.setMap(map);
+
+    const bounds = new google.maps.LatLngBounds();
+    path.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
+    map.fitBounds(bounds, { top: 80, bottom: 220, left: 40, right: 40 });
+
+    return () => {
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+      }
+    };
+  }, [map, path]);
+
+  return null;
+}
+
+function MapCenterUpdater({ center }: { center: { lat: number; lng: number } }) {
+  const map = useMap();
+  const lastCenter = useRef(center);
+
+  useEffect(() => {
+    if (!map) return;
+    if (lastCenter.current.lat !== center.lat || lastCenter.current.lng !== center.lng) {
+      map.panTo(center);
+      lastCenter.current = center;
+    }
+  }, [map, center]);
+
   return null;
 }
 
 interface MapProps {
   userLocation: [number, number] | null;
   buses: any[];
+  onBusClick?: (bus: any) => void;
 }
 
-export default function Map({ userLocation, buses }: MapProps) {
-  const defaultCenter: [number, number] = [-1.9441, 30.0619]; // Kigali center
+export default function MapComponent({ userLocation, buses, onBusClick }: MapProps) {
   const { searchedLocation, busStops, routePolyline, routes } = useStore();
-  const centerToUse = searchedLocation ? [searchedLocation.lat, searchedLocation.lng] as [number, number] : (userLocation || defaultCenter);
+  const [selectedStop, setSelectedStop] = React.useState<any>(null);
+  const [selectedBus, setSelectedBus] = React.useState<any>(null);
+
+  const centerToUse = searchedLocation
+    ? { lat: searchedLocation.lat, lng: searchedLocation.lng }
+    : userLocation
+      ? { lat: userLocation[0], lng: userLocation[1] }
+      : KIGALI_CENTER;
+
+  // If no API key, fall back to Leaflet-style OpenStreetMap
+  if (!GOOGLE_MAPS_API_KEY) {
+    return <FallbackMap userLocation={userLocation} buses={buses} onBusClick={onBusClick} />;
+  }
 
   return (
-    <div className="w-full h-full absolute inset-0 z-0 pb-16">
-      <MapContainer 
-        center={centerToUse} 
-        zoom={14} 
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={false}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        
-        <MapUpdater center={centerToUse} polyline={routePolyline} />
+    <div className="w-full h-full absolute inset-0 z-0">
+      <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+        <GoogleMap
+          defaultCenter={KIGALI_CENTER}
+          defaultZoom={14}
+          mapId="hanobus-map"
+          gestureHandling="greedy"
+          disableDefaultUI={true}
+          zoomControl={false}
+          style={{ width: '100%', height: '100%' }}
+        >
+          <MapCenterUpdater center={centerToUse} />
 
-        {routePolyline && (
-          <Polyline 
-            positions={routePolyline} 
-            color="#3b82f6" 
-            weight={5} 
-            opacity={0.7} 
-            dashArray="10, 10" 
-          />
-        )}
+          {routePolyline && <RoutePolyline path={routePolyline} />}
 
-        {userLocation && (
-          <Marker position={userLocation} icon={userIcon}>
-            <Popup>You are here</Popup>
-          </Marker>
-        )}
+          {/* User location */}
+          {userLocation && (
+            <AdvancedMarker position={{ lat: userLocation[0], lng: userLocation[1] }}>
+              <div className="w-4 h-4 bg-blue-500 rounded-full border-[3px] border-white shadow-lg" />
+            </AdvancedMarker>
+          )}
 
-        {busStops.map((stop) => {
-          const stopRoutes = stop.routeIds 
-            ? routes.filter(r => stop.routeIds?.includes(r.id))
-            : [];
-            
-          return (
-            <Marker 
-              key={stop.id} 
-              position={[stop.latitude, stop.longitude]}
-              icon={stopIcon}
+          {/* Bus stops */}
+          {busStops.map((stop) => {
+            const stopRoutes = stop.routeIds
+              ? routes.filter(r => stop.routeIds?.includes(r.id))
+              : [];
+            return (
+              <AdvancedMarker
+                key={stop.id}
+                position={{ lat: stop.latitude, lng: stop.longitude }}
+                onClick={() => setSelectedStop(selectedStop?.id === stop.id ? null : stop)}
+              >
+                <div className="flex flex-col items-center">
+                  <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  </div>
+                </div>
+              </AdvancedMarker>
+            );
+          })}
+
+          {selectedStop && (
+            <InfoWindow
+              position={{ lat: selectedStop.latitude, lng: selectedStop.longitude }}
+              onCloseClick={() => setSelectedStop(null)}
             >
-              <Popup>
-                <div className="font-sans min-w-[150px]">
-                  <h3 className="font-bold text-sm mb-1">{stop.name}</h3>
-                  <p className="text-xs text-gray-500 mb-2">Bus Stop</p>
-                  {stopRoutes.length > 0 ? (
+              <div className="font-sans min-w-[150px] p-1">
+                <h3 className="font-bold text-sm mb-1">{selectedStop.name}</h3>
+                <p className="text-xs text-gray-500 mb-2">Bus Stop</p>
+                {(() => {
+                  const stopRoutes = selectedStop.routeIds
+                    ? routes.filter((r: any) => selectedStop.routeIds?.includes(r.id))
+                    : [];
+                  return stopRoutes.length > 0 ? (
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-gray-700 border-b pb-1">Connecting Routes:</p>
-                      {stopRoutes.map(route => (
+                      {stopRoutes.map((route: any) => (
                         <div key={route.id} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
                           {route.routeName}
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-xs text-gray-400 italic">No route info available</p>
-                  )}
+                  ) : null;
+                })()}
+              </div>
+            </InfoWindow>
+          )}
+
+          {/* Search destination */}
+          {searchedLocation && (
+            <AdvancedMarker position={{ lat: searchedLocation.lat, lng: searchedLocation.lng }}>
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
                 </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-
-        {searchedLocation && (
-          <Marker position={[searchedLocation.lat, searchedLocation.lng]} icon={searchIcon}>
-            <Popup>
-              <div className="font-sans">
-                <h3 className="font-bold text-sm">{searchedLocation.name}</h3>
-                {searchedLocation.description && <p className="text-xs text-gray-600">{searchedLocation.description}</p>}
+                <div className="bg-white px-2 py-0.5 rounded shadow text-xs font-medium mt-1 max-w-[120px] truncate">
+                  {searchedLocation.name}
+                </div>
               </div>
-            </Popup>
-          </Marker>
-        )}
+            </AdvancedMarker>
+          )}
 
-        {buses.map((bus) => (
-          <Marker 
-            key={bus.id} 
-            position={[bus.latitude, bus.longitude]}
-            icon={bus.isDeviating ? deviatingBusIcon : busIcon}
-          >
-            <Popup>
-              <div className="font-sans">
-                <h3 className="font-bold text-sm">Route: {bus.routeId}</h3>
-                <p className="text-xs text-gray-600">Speed: {Math.round(bus.speedKmH || 0)} km/h</p>
-                <p className="text-xs text-gray-600">Next stop: {bus.nextStop}</p>
-                {bus.isDeviating && <p className="text-xs text-orange-600 font-bold mt-1">⚠️ Heavy Traffic / Deviating</p>}
+          {/* Buses */}
+          {buses.map((bus) => (
+            <AdvancedMarker
+              key={bus.id}
+              position={{ lat: bus.latitude, lng: bus.longitude }}
+              onClick={() => {
+                setSelectedBus(selectedBus?.id === bus.id ? null : bus);
+                onBusClick?.(bus);
+              }}
+            >
+              <div className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-xl shadow-lg flex items-center justify-center ${bus.isDeviating ? 'bg-orange-500' : 'bg-green-500'}`}>
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-4 4v3m-6 0h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v9a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                {bus.eta && (
+                  <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 shadow ${bus.isDeviating ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                    {bus.eta} min
+                  </div>
+                )}
               </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+            </AdvancedMarker>
+          ))}
+
+          {selectedBus && (
+            <InfoWindow
+              position={{ lat: selectedBus.latitude, lng: selectedBus.longitude }}
+              onCloseClick={() => setSelectedBus(null)}
+            >
+              <div className="font-sans min-w-[160px] p-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-3 h-3 rounded-full ${selectedBus.isDeviating ? 'bg-orange-500' : 'bg-green-500'}`} />
+                  <h3 className="font-bold text-sm">
+                    {routes.find(r => r.id === selectedBus.routeId)?.routeName || selectedBus.routeId}
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-600">Speed: {Math.round(selectedBus.speedKmH || 0)} km/h</p>
+                <p className="text-xs text-gray-600">Next: {selectedBus.nextStop}</p>
+                {selectedBus.eta && <p className="text-xs font-semibold text-blue-600 mt-1">ETA: {selectedBus.eta} min</p>}
+                {selectedBus.isDeviating && <p className="text-xs text-orange-600 font-bold mt-1">Heavy Traffic</p>}
+              </div>
+            </InfoWindow>
+          )}
+        </GoogleMap>
+      </APIProvider>
+    </div>
+  );
+}
+
+// Fallback to Leaflet if no Google Maps API key
+function FallbackMap({ userLocation, buses, onBusClick }: MapProps) {
+  const { searchedLocation, busStops, routePolyline, routes } = useStore();
+  const mapRef = useRef<any>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const polylineRef = useRef<any>(null);
+
+  const defaultCenter: [number, number] = [-1.9441, 30.0619];
+  const center = searchedLocation
+    ? [searchedLocation.lat, searchedLocation.lng] as [number, number]
+    : userLocation || defaultCenter;
+
+  useEffect(() => {
+    // Dynamic import of Leaflet
+    let cancelled = false;
+    (async () => {
+      const L = (await import('leaflet')).default;
+      await import('leaflet/dist/leaflet.css');
+
+      if (cancelled || mapInstanceRef.current) return;
+
+      const map = L.map(mapRef.current!, {
+        center: center,
+        zoom: 14,
+        zoomControl: false,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map);
+
+      mapInstanceRef.current = map;
+    })();
+
+    return () => {
+      cancelled = true;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    // Clear old markers
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    // User location
+    if (userLocation) {
+      const marker = L.circleMarker(userLocation, {
+        radius: 8, fillColor: '#3b82f6', fillOpacity: 1, color: 'white', weight: 3,
+      }).addTo(map);
+      markersRef.current.push(marker);
+    }
+
+    // Bus stops
+    busStops.forEach(stop => {
+      const marker = L.circleMarker([stop.latitude, stop.longitude], {
+        radius: 6, fillColor: '#1d4ed8', fillOpacity: 1, color: 'white', weight: 2,
+      }).addTo(map).bindPopup(`<b>${stop.name}</b><br/>Bus Stop`);
+      markersRef.current.push(marker);
+    });
+
+    // Buses
+    buses.forEach(bus => {
+      const color = bus.isDeviating ? '#f97316' : '#22c55e';
+      const routeName = routes.find(r => r.id === bus.routeId)?.routeName || bus.routeId;
+      const marker = L.circleMarker([bus.latitude, bus.longitude], {
+        radius: 10, fillColor: color, fillOpacity: 1, color: 'white', weight: 2,
+      }).addTo(map).bindPopup(
+        `<b>${routeName}</b><br/>Speed: ${Math.round(bus.speedKmH || 0)} km/h<br/>Next: ${bus.nextStop}${bus.eta ? `<br/><b>ETA: ${bus.eta} min</b>` : ''}`
+      );
+      marker.on('click', () => onBusClick?.(bus));
+      markersRef.current.push(marker);
+    });
+
+    // Search destination
+    if (searchedLocation) {
+      const marker = L.marker([searchedLocation.lat, searchedLocation.lng]).addTo(map)
+        .bindPopup(`<b>${searchedLocation.name}</b>`);
+      markersRef.current.push(marker);
+    }
+
+    // Route polyline
+    if (polylineRef.current) {
+      polylineRef.current.remove();
+      polylineRef.current = null;
+    }
+    if (routePolyline && routePolyline.length > 0) {
+      polylineRef.current = L.polyline(routePolyline, {
+        color: '#3b82f6', weight: 5, opacity: 0.7, dashArray: '10, 10',
+      }).addTo(map);
+      map.fitBounds(polylineRef.current.getBounds(), { padding: [50, 50] });
+    } else {
+      map.setView(center, 14);
+    }
+  }, [userLocation, buses, busStops, searchedLocation, routePolyline, routes, center]);
+
+  return (
+    <div className="w-full h-full absolute inset-0 z-0">
+      <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
     </div>
   );
 }
