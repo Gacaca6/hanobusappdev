@@ -4,7 +4,7 @@ import { calculateETA } from '../services/transitService';
 import { useBusSimulation, SimulatedBus } from '../services/busSimulation';
 import Map from '../components/Map';
 import BottomSheet from '../components/BottomSheet';
-import { Menu, Bell, Play, Square, X, Bus, Clock, Navigation, ChevronUp } from 'lucide-react';
+import { Bell, X, Bus, Clock, Navigation } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
@@ -94,9 +94,9 @@ export default function Home() {
     <div className="relative h-full w-full overflow-hidden bg-gray-100">
       {/* Top Navigation Bar */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4 flex justify-between items-center pointer-events-none">
-        <button className="h-12 w-12 bg-white rounded-full shadow-md flex items-center justify-center pointer-events-auto hover:bg-gray-50 transition-colors">
-          <Menu className="h-6 w-6 text-gray-800" />
-        </button>
+        <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-md px-4 py-2.5 pointer-events-auto">
+          <span className="text-base font-extrabold text-blue-600 tracking-tight">Hano<span className="text-gray-800">Bus</span></span>
+        </div>
         <div className="flex gap-2 pointer-events-auto">
           <button
             onClick={() => navigate('/alerts')}
