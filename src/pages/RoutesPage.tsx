@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapIcon, Search, Navigation, Bus, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapIcon, Search, Navigation, Bus, Clock, ChevronDown, ChevronUp, Zap, Users, Timer, Activity, BadgeCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { calculateETA } from '../services/transitService';
-import { ALL_ROUTES, ZONE_III_ROUTES, ZONE_IV_ROUTES } from '../data/hanobus_routes';
+import { ALL_ROUTES, ZONE_III_ROUTES, ZONE_IV_ROUTES, QueueTheory, RESEARCH_CONSTANTS } from '../data/hanobus_routes';
 import type { Route as DataRoute } from '../data/hanobus_routes';
 
 function RouteSkeletons() {
@@ -23,6 +23,51 @@ function RouteSkeletons() {
   );
 }
 
+// Check if current time falls within any of the route's peak hours
+function isPeakHour(peakHours: string[]): boolean {
+  const now = new Date();
+  const currentMin = now.getHours() * 60 + now.getMinutes();
+  for (const range of peakHours) {
+    const [start, end] = range.split('-');
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const startMin = sh * 60 + sm;
+    const endMin = eh * 60 + em;
+    if (currentMin >= startMin && currentMin <= endMin) return true;
+  }
+  return false;
+}
+
+// Calculate live queue theory stats for a route
+function getRouteStats(route: DataRoute) {
+  const isPeak = isPeakHour(route.peakHours);
+  const baseArrivalRate = route.avgArrivalRatePerMin ?? RESEARCH_CONSTANTS.avgArrivalRatePerMin;
+  const lambda = isPeak ? baseArrivalRate * 1.5 : baseArrivalRate;
+  const boardingTime = route.avgBoardingTimeMin ?? RESEARCH_CONSTANTS.avgBoardingTimeMin;
+
+  const N = route.avgBusesPerDay;
+  const Bc = route.avgBusCapacity;
+  const T = route.estimatedTravelTimeMin;
+
+  const mu = QueueTheory.servingRate(N, Bc, T, boardingTime);
+  const rho = QueueTheory.utilization(lambda, mu);
+  const waitQueue = QueueTheory.avgWaitQueue(lambda, mu);
+  const inQueue = QueueTheory.avgInQueue(rho);
+  const headway = QueueTheory.headway(T, boardingTime, N);
+
+  return {
+    isPeak,
+    lambda: Math.round(lambda * 10) / 10,
+    mu: Math.round(mu * 10) / 10,
+    utilization: Math.min(Math.round(rho * 1000) / 10, 100),  // cap at 100%
+    waitMin: rho >= 1 ? null : Math.round(waitQueue * 10) / 10,
+    queueSize: rho >= 1 ? null : Math.round(inQueue * 10) / 10,
+    headwayMin: Math.round(headway * 10) / 10,
+    isOverloaded: rho >= 1,
+    isBaseline: route.isResearchBaseline === true,
+  };
+}
+
 export default function RoutesPage() {
   const { buses, busStops } = useStore();
   const { t } = useTranslation();
@@ -31,7 +76,6 @@ export default function RoutesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Brief skeleton then show static data
     const timer = setTimeout(() => setIsLoading(false), 600);
     return () => clearTimeout(timer);
   }, []);
@@ -47,7 +91,6 @@ export default function RoutesPage() {
     );
   }, [searchQuery]);
 
-  // Group by zone
   const zoneIIIFiltered = filteredRoutes.filter(r => r.zone === 3);
   const zoneIVFiltered = filteredRoutes.filter(r => r.zone === 4);
 
@@ -66,6 +109,7 @@ export default function RoutesPage() {
   const renderRouteCard = (route: DataRoute) => {
     const routeBuses = getRouteBuses(route.id);
     const isExpanded = expandedRoute === route.id;
+    const stats = isExpanded ? getRouteStats(route) : null;
 
     return (
       <div key={route.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -95,8 +139,91 @@ export default function RoutesPage() {
           </div>
         </button>
 
-        {isExpanded && (
+        {isExpanded && stats && (
           <div className="px-4 pb-4 border-t border-gray-100">
+            {/* Badges */}
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              {stats.isBaseline && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
+                  <BadgeCheck className="w-3 h-3" /> Research Verified
+                </span>
+              )}
+              {stats.isPeak && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200">
+                  <Zap className="w-3 h-3" /> Peak Hours
+                </span>
+              )}
+              {stats.isOverloaded && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded-full border border-red-200">
+                  <Activity className="w-3 h-3" /> Congested
+                </span>
+              )}
+            </div>
+
+            {/* Live Stats Card */}
+            <div className="mt-3 bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-3 border border-blue-100">
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-1">
+                <Activity className="w-3 h-3" /> Live Queue Stats
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Wait time */}
+                <div className="bg-white rounded-lg p-2.5 shadow-sm">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Timer className="w-3.5 h-3.5 text-blue-500" />
+                    <span className="text-[10px] text-gray-500 uppercase">Avg Wait</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {stats.waitMin !== null ? `${stats.waitMin}` : '---'}
+                    <span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
+                  </p>
+                </div>
+
+                {/* Utilization */}
+                <div className="bg-white rounded-lg p-2.5 shadow-sm">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Activity className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="text-[10px] text-gray-500 uppercase">Utilization</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-lg font-bold text-gray-900">{stats.utilization}<span className="text-xs font-normal text-gray-400">%</span></p>
+                    <div className={`w-2.5 h-2.5 rounded-full ${
+                      stats.utilization < 70 ? 'bg-green-500' :
+                      stats.utilization < 85 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`} />
+                  </div>
+                </div>
+
+                {/* Next bus */}
+                <div className="bg-white rounded-lg p-2.5 shadow-sm">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Bus className="w-3.5 h-3.5 text-green-500" />
+                    <span className="text-[10px] text-gray-500 uppercase">Next Bus In</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {stats.headwayMin}<span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
+                  </p>
+                </div>
+
+                {/* Queue size */}
+                <div className="bg-white rounded-lg p-2.5 shadow-sm">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Users className="w-3.5 h-3.5 text-orange-500" />
+                    <span className="text-[10px] text-gray-500 uppercase">In Queue</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {stats.queueSize !== null ? `${stats.queueSize}` : '---'}
+                    <span className="text-xs font-normal text-gray-400 ml-0.5">pax</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Rate info */}
+              <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400">
+                <span>Arrival: {stats.lambda} pax/min</span>
+                <span>Service: {stats.mu} pax/min</span>
+              </div>
+            </div>
+
             {/* Route details */}
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div className="bg-gray-50 rounded-xl p-2">
