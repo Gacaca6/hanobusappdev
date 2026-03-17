@@ -163,30 +163,37 @@ export default function MapComponent({ userLocation, buses, onBusClick }: MapPro
             </AdvancedMarker>
           )}
 
-          {/* Buses */}
-          {buses.map((bus) => (
-            <AdvancedMarker
-              key={bus.id}
-              position={{ lat: bus.latitude, lng: bus.longitude }}
-              onClick={() => {
-                setSelectedBus(selectedBus?.id === bus.id ? null : bus);
-                onBusClick?.(bus);
-              }}
-            >
-              <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-xl shadow-lg flex items-center justify-center ${bus.isDeviating ? 'bg-orange-500' : 'bg-green-500'}`}>
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-4 4v3m-6 0h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v9a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                {bus.eta && (
-                  <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 shadow ${bus.isDeviating ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                    {bus.eta} min
+          {/* Buses — colored by route */}
+          {buses.map((bus) => {
+            const color = bus.routeColor || (bus.isDeviating ? '#f97316' : '#22c55e');
+            return (
+              <AdvancedMarker
+                key={bus.id}
+                position={{ lat: bus.latitude, lng: bus.longitude }}
+                onClick={() => {
+                  setSelectedBus(selectedBus?.id === bus.id ? null : bus);
+                  onBusClick?.(bus);
+                }}
+              >
+                <div className="flex flex-col items-center">
+                  <div
+                    className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center border-2 border-white"
+                    style={{ backgroundColor: color }}
+                  >
+                    <span className="text-[9px] font-extrabold text-white">{bus.routeCode || '?'}</span>
                   </div>
-                )}
-              </div>
-            </AdvancedMarker>
-          ))}
+                  {bus.eta && (
+                    <div
+                      className="px-1.5 py-0.5 rounded-full text-[9px] font-bold mt-0.5 shadow border border-white/50"
+                      style={{ backgroundColor: color + '20', color }}
+                    >
+                      {typeof bus.eta === 'number' ? Math.round(bus.eta) : bus.eta}m
+                    </div>
+                  )}
+                </div>
+              </AdvancedMarker>
+            );
+          })}
 
           {selectedBus && (
             <InfoWindow
@@ -195,14 +202,15 @@ export default function MapComponent({ userLocation, buses, onBusClick }: MapPro
             >
               <div className="font-sans min-w-[160px] p-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-3 h-3 rounded-full ${selectedBus.isDeviating ? 'bg-orange-500' : 'bg-green-500'}`} />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedBus.routeColor || '#22c55e' }} />
                   <h3 className="font-bold text-sm">
-                    {routes.find(r => r.id === selectedBus.routeId)?.shortName || routes.find(r => r.id === selectedBus.routeId)?.routeName || selectedBus.routeId}
+                    {selectedBus.routeName || routes.find(r => r.id === selectedBus.routeId)?.shortName || selectedBus.routeId}
                   </h3>
                 </div>
+                <p className="text-xs text-gray-600">Bus: {selectedBus.id.replace('sim-', '').toUpperCase()}</p>
                 <p className="text-xs text-gray-600">Speed: {Math.round(selectedBus.speedKmH || 0)} km/h</p>
                 <p className="text-xs text-gray-600">Next: {selectedBus.nextStop}</p>
-                {selectedBus.eta && <p className="text-xs font-semibold text-blue-600 mt-1">ETA: {selectedBus.eta} min</p>}
+                {selectedBus.eta && <p className="text-xs font-semibold text-blue-600 mt-1">ETA to terminal: {typeof selectedBus.eta === 'number' ? Math.round(selectedBus.eta) : selectedBus.eta} min</p>}
                 {selectedBus.isDeviating && <p className="text-xs text-orange-600 font-bold mt-1">Heavy Traffic</p>}
               </div>
             </InfoWindow>
@@ -292,15 +300,25 @@ function FallbackMap({ userLocation, buses, onBusClick }: MapProps) {
       markersRef.current.push(marker);
     });
 
-    // Buses
+    // Buses — colored circles using route color
     buses.forEach(bus => {
-      const color = bus.isDeviating ? '#f97316' : '#22c55e';
-      const foundRoute = routes.find(r => r.id === bus.routeId);
-      const routeName = foundRoute?.shortName || foundRoute?.routeName || bus.routeId;
+      const color = bus.routeColor || (bus.isDeviating ? '#f97316' : '#22c55e');
+      const routeName = bus.routeName || routes.find(r => r.id === bus.routeId)?.shortName || bus.routeId;
+      const busLabel = bus.id.replace('sim-', '').toUpperCase();
+      const etaText = bus.eta ? (typeof bus.eta === 'number' ? Math.round(bus.eta) : bus.eta) : null;
       const marker = L.circleMarker([bus.latitude, bus.longitude], {
-        radius: 10, fillColor: color, fillOpacity: 1, color: 'white', weight: 2,
+        radius: 8, fillColor: color, fillOpacity: 0.9, color: 'white', weight: 2,
       }).addTo(map).bindPopup(
-        `<b>${routeName}</b><br/>Speed: ${Math.round(bus.speedKmH || 0)} km/h<br/>Next: ${bus.nextStop}${bus.eta ? `<br/><b>ETA: ${bus.eta} min</b>` : ''}`
+        `<div style="font-family:sans-serif;">` +
+        `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">` +
+        `<div style="width:10px;height:10px;border-radius:50%;background:${color};"></div>` +
+        `<b>${routeName}</b></div>` +
+        `<span style="font-size:11px;color:#666;">Bus: ${busLabel}</span><br/>` +
+        `<span style="font-size:11px;color:#666;">Speed: ${Math.round(bus.speedKmH || 0)} km/h</span><br/>` +
+        `<span style="font-size:11px;color:#666;">Next: ${bus.nextStop}</span>` +
+        (etaText ? `<br/><b style="font-size:11px;color:#2563eb;">ETA to terminal: ${etaText} min</b>` : '') +
+        (bus.isDeviating ? `<br/><b style="font-size:11px;color:#f97316;">Heavy Traffic</b>` : '') +
+        `</div>`
       );
       marker.on('click', () => onBusClick?.(bus));
       markersRef.current.push(marker);

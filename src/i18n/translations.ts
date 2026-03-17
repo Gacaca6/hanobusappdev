@@ -117,6 +117,26 @@ export const translations = {
     high: 'High',
     confirmDelete: 'Are you sure you want to delete this?',
 
+    // Queue Theory & Research
+    alertHigh: 'High Severity',
+    alertMedium: 'Medium Severity',
+    alertLow: 'Low Severity',
+    researchVerified: 'Research Verified',
+    peakHours: 'Peak Hours',
+    estimatedWait: 'Estimated Wait',
+    nextBus: 'Next Bus',
+    systemLoad: 'System Load',
+    activeAlert: 'Active',
+    routeLabel: 'Route',
+    liveQueueStats: 'Live Queue Stats',
+    headway: 'Headway',
+    busesDay: 'Buses/Day',
+    startTerminal: 'Start Terminal',
+    endTerminal: 'End Terminal',
+    inQueue: 'In Queue',
+    arrivalRate: 'Arrival',
+    serviceRate: 'Service',
+
     // Offline
     offlineTitle: 'You are offline',
     offlineMessage: 'Some features may be limited. Data will sync when you reconnect.',
@@ -247,6 +267,26 @@ export const translations = {
     medium: 'Hagati',
     high: 'Byinshi',
     confirmDelete: 'Uzi neza ko ushaka gusiba ibi?',
+
+    // Queue Theory & Research
+    alertHigh: 'Ikirenga Cyane',
+    alertMedium: 'Ikirenga Hagati',
+    alertLow: 'Ikirenga Buke',
+    researchVerified: 'Byemejwe n\'Ubushakashatsi',
+    peakHours: 'Amasaha y\'Inyamyaruka',
+    estimatedWait: 'Igihe cyo Gutegereza',
+    nextBus: 'Bisi Ikurikira',
+    systemLoad: 'Umutwaro w\'Sisitemu',
+    activeAlert: 'Irakora',
+    routeLabel: 'Inzira',
+    liveQueueStats: 'Imibare Nyakuri y\'Umurongo',
+    headway: 'Isano',
+    busesDay: 'Bisi/Umunsi',
+    startTerminal: 'Aho Bitangirira',
+    endTerminal: 'Aho Birangirira',
+    inQueue: 'Mu Murongo',
+    arrivalRate: 'Kugera',
+    serviceRate: 'Serivisi',
 
     // Offline
     offlineTitle: 'Ntabwo uri ku murongo',

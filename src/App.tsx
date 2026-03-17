@@ -11,6 +11,7 @@ import OfflineIndicator from './components/OfflineIndicator';
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
 const RoutesPage = lazy(() => import('./pages/RoutesPage'));
+const RouteDetailPage = lazy(() => import('./pages/RouteDetailPage'));
 const AlertsPage = lazy(() => import('./pages/AlertsPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -77,6 +78,7 @@ export default function App() {
           <Route element={user ? <Layout /> : <Navigate to="/login" />}>
             <Route path="/" element={<Home />} />
             <Route path="/routes" element={<RoutesPage />} />
+            <Route path="/routes/:routeId" element={<RouteDetailPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/profile" element={<ProfilePage />} />

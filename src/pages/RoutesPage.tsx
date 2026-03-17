@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapIcon, Search, Navigation, Bus, Clock, ChevronDown, ChevronUp, Zap, Users, Timer, Activity, BadgeCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MapIcon, Search, Navigation, Bus, Clock, ChevronRight, Zap, Users, Timer, Activity, BadgeCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { calculateETA } from '../services/transitService';
@@ -69,10 +70,10 @@ function getRouteStats(route: DataRoute) {
 }
 
 export default function RoutesPage() {
+  const navigate = useNavigate();
   const { buses, busStops } = useStore();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -108,198 +109,46 @@ export default function RoutesPage() {
 
   const renderRouteCard = (route: DataRoute) => {
     const routeBuses = getRouteBuses(route.id);
-    const isExpanded = expandedRoute === route.id;
-    const stats = isExpanded ? getRouteStats(route) : null;
+    const isPeak = isPeakHour(route.peakHours);
 
     return (
-      <div key={route.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <button
-          onClick={() => setExpandedRoute(isExpanded ? null : route.id)}
-          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: route.color + '20' }}>
-              <span className="text-sm font-bold" style={{ color: route.color }}>{route.code}</span>
-            </div>
-            <div className="text-left">
-              <h3 className="font-semibold text-gray-900">{route.shortName}</h3>
-              <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
-                <Navigation className="h-3 w-3" />
-                {Math.round(route.estimatedTravelTimeMin)} min • {route.distanceKm} km • {route.stops.length} {t('stops').toLowerCase()}
-              </p>
-            </div>
+      <button
+        key={route.id}
+        onClick={() => navigate(`/routes/${route.id}`)}
+        className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-between hover:bg-gray-50 active:scale-[0.98] transition-all"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-12 w-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: route.color + '20' }}>
+            <span className="text-sm font-bold" style={{ color: route.color }}>{route.code}</span>
           </div>
-          <div className="flex items-center gap-2">
-            {routeBuses.length > 0 && (
-              <span className="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">
-                {routeBuses.length} {routeBuses.length > 1 ? t('busesPlural') : t('bus')}
-              </span>
-            )}
-            {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-          </div>
-        </button>
-
-        {isExpanded && stats && (
-          <div className="px-4 pb-4 border-t border-gray-100">
-            {/* Badges */}
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-              {stats.isBaseline && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
-                  <BadgeCheck className="w-3 h-3" /> Research Verified
+          <div className="text-left min-w-0">
+            <h3 className="font-semibold text-gray-900 truncate">{route.shortName}</h3>
+            <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+              <Navigation className="h-3 w-3 shrink-0" />
+              <span className="truncate">{Math.round(route.estimatedTravelTimeMin)} min • {route.distanceKm} km • {route.stops.length} {t('stops').toLowerCase()}</span>
+            </p>
+            {/* Mini badges */}
+            <div className="flex items-center gap-1.5 mt-1.5">
+              {isPeak && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-bold rounded-full">
+                  <Zap className="w-2.5 h-2.5" /> Peak
                 </span>
               )}
-              {stats.isPeak && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200">
-                  <Zap className="w-3 h-3" /> Peak Hours
+              {route.isResearchBaseline && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[9px] font-bold rounded-full">
+                  <BadgeCheck className="w-2.5 h-2.5" /> Verified
                 </span>
               )}
-              {stats.isOverloaded && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded-full border border-red-200">
-                  <Activity className="w-3 h-3" /> Congested
+              {routeBuses.length > 0 && (
+                <span className="px-1.5 py-0.5 bg-green-50 text-green-700 text-[9px] font-medium rounded-full">
+                  {routeBuses.length} {routeBuses.length > 1 ? t('busesPlural') : t('bus')}
                 </span>
               )}
             </div>
-
-            {/* Live Stats Card */}
-            <div className="mt-3 bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-3 border border-blue-100">
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-1">
-                <Activity className="w-3 h-3" /> Live Queue Stats
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {/* Wait time */}
-                <div className="bg-white rounded-lg p-2.5 shadow-sm">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Timer className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="text-[10px] text-gray-500 uppercase">Avg Wait</span>
-                  </div>
-                  <p className="text-lg font-bold text-gray-900">
-                    {stats.waitMin !== null ? `${stats.waitMin}` : '---'}
-                    <span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
-                  </p>
-                </div>
-
-                {/* Utilization */}
-                <div className="bg-white rounded-lg p-2.5 shadow-sm">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Activity className="w-3.5 h-3.5 text-purple-500" />
-                    <span className="text-[10px] text-gray-500 uppercase">Utilization</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-bold text-gray-900">{stats.utilization}<span className="text-xs font-normal text-gray-400">%</span></p>
-                    <div className={`w-2.5 h-2.5 rounded-full ${
-                      stats.utilization < 70 ? 'bg-green-500' :
-                      stats.utilization < 85 ? 'bg-yellow-500' : 'bg-red-500'
-                    }`} />
-                  </div>
-                </div>
-
-                {/* Next bus */}
-                <div className="bg-white rounded-lg p-2.5 shadow-sm">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Bus className="w-3.5 h-3.5 text-green-500" />
-                    <span className="text-[10px] text-gray-500 uppercase">Next Bus In</span>
-                  </div>
-                  <p className="text-lg font-bold text-gray-900">
-                    {stats.headwayMin}<span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
-                  </p>
-                </div>
-
-                {/* Queue size */}
-                <div className="bg-white rounded-lg p-2.5 shadow-sm">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Users className="w-3.5 h-3.5 text-orange-500" />
-                    <span className="text-[10px] text-gray-500 uppercase">In Queue</span>
-                  </div>
-                  <p className="text-lg font-bold text-gray-900">
-                    {stats.queueSize !== null ? `${stats.queueSize}` : '---'}
-                    <span className="text-xs font-normal text-gray-400 ml-0.5">pax</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Rate info */}
-              <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400">
-                <span>Arrival: {stats.lambda} pax/min</span>
-                <span>Service: {stats.mu} pax/min</span>
-              </div>
-            </div>
-
-            {/* Route details */}
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="bg-gray-50 rounded-xl p-2">
-                <p className="text-xs text-gray-500">Headway</p>
-                <p className="text-sm font-bold text-gray-900">{route.avgHeadwayMin} min</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-2">
-                <p className="text-xs text-gray-500">Buses/Day</p>
-                <p className="text-sm font-bold text-gray-900">{route.avgBusesPerDay}</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-2">
-                <p className="text-xs text-gray-500">Capacity</p>
-                <p className="text-sm font-bold text-gray-900">{route.avgBusCapacity}</p>
-              </div>
-            </div>
-
-            {/* Active buses */}
-            {routeBuses.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">{t('activeBusesLabel')}</p>
-                <div className="space-y-2">
-                  {routeBuses.map(bus => (
-                    <div key={bus.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bus.isDeviating ? 'bg-orange-100' : 'bg-green-100'}`}>
-                          <Bus className={`w-4 h-4 ${bus.isDeviating ? 'text-orange-600' : 'text-green-600'}`} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{bus.id.toUpperCase()}</p>
-                          <p className="text-xs text-gray-500">
-                            {Math.round(bus.speedKmH || 0)} {t('kmh')} • {t('nextStop')}: {bus.nextStop}
-                          </p>
-                        </div>
-                      </div>
-                      {bus.eta && (
-                        <div className="flex items-center gap-1 text-blue-600">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span className="text-sm font-bold">{bus.eta} min</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Stops */}
-            <div className="mt-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">{t('stops')}</p>
-              <div className="flex items-center gap-1 overflow-x-auto pb-1">
-                {route.stops.map((stop, idx) => (
-                  <React.Fragment key={idx}>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <div
-                        className="w-3 h-3 rounded-full border-2"
-                        style={{
-                          backgroundColor: stop.isTerminal ? route.color : 'white',
-                          borderColor: route.color,
-                        }}
-                      />
-                      <span className="text-xs text-gray-700 whitespace-nowrap">{stop.name}</span>
-                    </div>
-                    {idx < route.stops.length - 1 && (
-                      <div className="flex-shrink-0 w-4 h-0.5" style={{ backgroundColor: route.color + '60' }} />
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-
-            {routeBuses.length === 0 && (
-              <p className="mt-3 text-sm text-gray-400 text-center py-2">{t('noActiveBuses')}</p>
-            )}
           </div>
-        )}
-      </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-gray-300 shrink-0 ml-2" />
+      </button>
     );
   };
 
