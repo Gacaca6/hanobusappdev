@@ -1,16 +1,28 @@
 import { collection, doc, setDoc, getDocs, deleteDoc, onSnapshot, query, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/errorHandler';
+import { ALL_ROUTES, SAMPLE_ALERTS } from '../data/hanobus_routes';
+import type { Route as DataRoute } from '../data/hanobus_routes';
 
 // Types
 export interface Route {
   id: string;
   routeName: string;
+  shortName: string;
   startLocation: string;
   endLocation: string;
   distanceKm?: number;
   avgTravelTimeMins?: number;
+  avgHeadwayMin?: number;
+  avgBusesPerDay?: number;
+  avgBusCapacity?: number;
+  zone?: number;
+  color?: string;
+  code?: string;
+  operator?: string;
+  peakHours?: string[];
   orderedStopIds?: string[];
+  stops?: { name: string; lat: number; lng: number; isTerminal?: boolean }[];
 }
 
 export interface Bus {
@@ -51,38 +63,86 @@ export interface Favorite {
   createdAt: Timestamp;
 }
 
-// Seed Data
-const seedRoutes: Route[] = [
-  { id: 'route-1', routeName: 'Nyabugogo - Remera', startLocation: 'Nyabugogo', endLocation: 'Remera', distanceKm: 12, avgTravelTimeMins: 45, orderedStopIds: ['stop-1', 'stop-7', 'stop-4'] },
-  { id: 'route-2', routeName: 'Kimironko - CBD', startLocation: 'Kimironko', endLocation: 'CBD', distanceKm: 8, avgTravelTimeMins: 30, orderedStopIds: ['stop-3', 'stop-7', 'stop-2'] },
-  { id: 'route-3', routeName: 'Kicukiro - CBD', startLocation: 'Kicukiro', endLocation: 'CBD', distanceKm: 10, avgTravelTimeMins: 40, orderedStopIds: ['stop-5', 'stop-6', 'stop-2'] },
-  { id: 'route-4', routeName: 'Nyamirambo - CBD', startLocation: 'Nyamirambo', endLocation: 'CBD', distanceKm: 5, avgTravelTimeMins: 20, orderedStopIds: ['stop-8', 'stop-2'] },
-  { id: 'route-5', routeName: 'Gisozi - Nyabugogo', startLocation: 'Gisozi', endLocation: 'Nyabugogo', distanceKm: 7, avgTravelTimeMins: 25, orderedStopIds: ['stop-9', 'stop-1'] },
-];
+// Build seed data from hanobus_routes.ts dataset
+function buildSeedRoutes(): Route[] {
+  return ALL_ROUTES.map(r => ({
+    id: `route-${r.id}`,
+    routeName: r.name,
+    shortName: r.shortName,
+    startLocation: r.stops[0].name,
+    endLocation: r.stops[r.stops.length - 1].name,
+    distanceKm: r.distanceKm,
+    avgTravelTimeMins: Math.round(r.estimatedTravelTimeMin),
+    avgHeadwayMin: r.avgHeadwayMin,
+    avgBusesPerDay: r.avgBusesPerDay,
+    avgBusCapacity: r.avgBusCapacity,
+    zone: r.zone,
+    color: r.color,
+    code: r.code,
+    operator: r.operator,
+    peakHours: r.peakHours,
+    orderedStopIds: r.stops.map((_, i) => `stop-${r.id}-${i}`),
+    stops: r.stops,
+  }));
+}
 
-const seedAlerts: Alert[] = [
-  { id: 'alert-1', message: 'Heavy Traffic on KN 5 Rd. Expect delays of up to 20 minutes due to road construction near Sonatubes.', severity: 'medium', timestamp: Timestamp.now() },
-  { id: 'alert-2', message: 'Buses to Kimironko are being diverted through Kisementi due to an accident.', routeId: 'route-2', severity: 'high', timestamp: Timestamp.now() },
-  { id: 'alert-3', message: 'Starting tomorrow, a new express service will run from Nyabugogo to CBD.', severity: 'low', timestamp: Timestamp.now() },
-];
+function buildSeedStops(): BusStop[] {
+  const stopMap = new Map<string, BusStop>();
+  ALL_ROUTES.forEach(route => {
+    route.stops.forEach((stop, i) => {
+      const key = `${stop.name}-${stop.lat.toFixed(4)}-${stop.lng.toFixed(4)}`;
+      if (stopMap.has(key)) {
+        const existing = stopMap.get(key)!;
+        if (!existing.routeIds!.includes(`route-${route.id}`)) {
+          existing.routeIds!.push(`route-${route.id}`);
+        }
+      } else {
+        stopMap.set(key, {
+          id: `stop-${route.id}-${i}`,
+          name: stop.name,
+          latitude: stop.lat,
+          longitude: stop.lng,
+          routeIds: [`route-${route.id}`],
+        });
+      }
+    });
+  });
+  return Array.from(stopMap.values());
+}
 
-const seedBuses: Bus[] = [
-  { id: 'bus-1', routeId: 'route-1', latitude: -1.9441, longitude: 30.0619, speedKmH: 40, lastUpdated: Timestamp.now(), nextStop: 'Gishushu', isDeviating: false },
-  { id: 'bus-2', routeId: 'route-2', latitude: -1.9536, longitude: 30.1127, speedKmH: 35, lastUpdated: Timestamp.now(), nextStop: 'Gishushu', isDeviating: false },
-  { id: 'bus-3', routeId: 'route-3', latitude: -1.9700, longitude: 30.0900, speedKmH: 45, lastUpdated: Timestamp.now(), nextStop: 'Sonatubes', isDeviating: false },
-];
+function buildSeedBuses(): Bus[] {
+  // Seed one bus per high-demand route
+  const highDemandRoutes = ALL_ROUTES.filter(r => r.avgBusesPerDay >= 14).slice(0, 8);
+  return highDemandRoutes.map((r, i) => {
+    const midStop = r.stops[Math.floor(r.stops.length / 2)];
+    const nextStop = r.stops[Math.min(Math.floor(r.stops.length / 2) + 1, r.stops.length - 1)];
+    return {
+      id: `bus-${r.id}-${i}`,
+      routeId: `route-${r.id}`,
+      latitude: midStop.lat + (Math.random() - 0.5) * 0.002,
+      longitude: midStop.lng + (Math.random() - 0.5) * 0.002,
+      speedKmH: 15 + Math.round(Math.random() * 25),
+      lastUpdated: Timestamp.now(),
+      nextStop: nextStop.name,
+      isDeviating: false,
+    };
+  });
+}
 
-const seedBusStops: BusStop[] = [
-  { id: 'stop-1', name: 'Nyabugogo Bus Park', latitude: -1.9395, longitude: 30.0550, routeIds: ['route-1', 'route-5'] },
-  { id: 'stop-2', name: 'CBD (City Center)', latitude: -1.9441, longitude: 30.0619, routeIds: ['route-2', 'route-3', 'route-4'] },
-  { id: 'stop-3', name: 'Kimironko Bus Park', latitude: -1.9536, longitude: 30.0936, routeIds: ['route-2'] },
-  { id: 'stop-4', name: 'Remera Park', latitude: -1.9585, longitude: 30.1044, routeIds: ['route-1'] },
-  { id: 'stop-5', name: 'Kicukiro Centre', latitude: -1.9750, longitude: 30.0900, routeIds: ['route-3'] },
-  { id: 'stop-6', name: 'Sonatubes', latitude: -1.9650, longitude: 30.1000, routeIds: ['route-3'] },
-  { id: 'stop-7', name: 'Gishushu', latitude: -1.9530, longitude: 30.0980, routeIds: ['route-1', 'route-2'] },
-  { id: 'stop-8', name: 'Nyamirambo', latitude: -1.9800, longitude: 30.0450, routeIds: ['route-4'] },
-  { id: 'stop-9', name: 'Gisozi', latitude: -1.9200, longitude: 30.0600, routeIds: ['route-5'] },
-];
+function buildSeedAlerts(): Alert[] {
+  return SAMPLE_ALERTS.map(a => ({
+    id: a.id,
+    message: a.messageEn,
+    routeId: `route-${a.routeId}`,
+    severity: a.severity,
+    timestamp: Timestamp.now(),
+  }));
+}
+
+const seedRoutes = buildSeedRoutes();
+const seedBusStops = buildSeedStops();
+const seedBuses = buildSeedBuses();
+const seedAlerts = buildSeedAlerts();
 
 export async function seedDatabaseIfEmpty() {
   if (!auth.currentUser) return;

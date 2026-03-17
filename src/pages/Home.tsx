@@ -244,7 +244,7 @@ export default function Home() {
                     </div>
                     <div className="text-left">
                       <p className="text-xs font-semibold text-gray-900 whitespace-nowrap">
-                        {route?.routeName?.split(' - ')[0] || bus.routeId}
+                        {route?.shortName || route?.routeName?.split(' - ')[0] || bus.routeId}
                       </p>
                       <p className="text-[10px] text-gray-500 flex items-center gap-0.5">
                         <Clock className="w-2.5 h-2.5" />
@@ -273,7 +273,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900">
-                    {routes.find(r => r.id === selectedBusWithETA.routeId)?.routeName || selectedBusWithETA.routeId}
+                    {routes.find(r => r.id === selectedBusWithETA.routeId)?.shortName || routes.find(r => r.id === selectedBusWithETA.routeId)?.routeName || selectedBusWithETA.routeId}
                   </h3>
                   <p className="text-sm text-gray-500">{selectedBusWithETA.id.toUpperCase()}</p>
                 </div>

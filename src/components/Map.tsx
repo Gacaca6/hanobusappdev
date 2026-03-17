@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { useStore } from '../store/useStore';
+import { ALL_ROUTES } from '../data/hanobus_routes';
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || '';
 const KIGALI_CENTER = { lat: -1.9441, lng: 30.0619 };
@@ -136,7 +137,7 @@ export default function MapComponent({ userLocation, buses, onBusClick }: MapPro
                       <p className="text-xs font-semibold text-gray-700 border-b pb-1">Connecting Routes:</p>
                       {stopRoutes.map((route: any) => (
                         <div key={route.id} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                          {route.routeName}
+                          {route.shortName || route.routeName}
                         </div>
                       ))}
                     </div>
@@ -196,7 +197,7 @@ export default function MapComponent({ userLocation, buses, onBusClick }: MapPro
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`w-3 h-3 rounded-full ${selectedBus.isDeviating ? 'bg-orange-500' : 'bg-green-500'}`} />
                   <h3 className="font-bold text-sm">
-                    {routes.find(r => r.id === selectedBus.routeId)?.routeName || selectedBus.routeId}
+                    {routes.find(r => r.id === selectedBus.routeId)?.shortName || routes.find(r => r.id === selectedBus.routeId)?.routeName || selectedBus.routeId}
                   </h3>
                 </div>
                 <p className="text-xs text-gray-600">Speed: {Math.round(selectedBus.speedKmH || 0)} km/h</p>
@@ -294,7 +295,8 @@ function FallbackMap({ userLocation, buses, onBusClick }: MapProps) {
     // Buses
     buses.forEach(bus => {
       const color = bus.isDeviating ? '#f97316' : '#22c55e';
-      const routeName = routes.find(r => r.id === bus.routeId)?.routeName || bus.routeId;
+      const foundRoute = routes.find(r => r.id === bus.routeId);
+      const routeName = foundRoute?.shortName || foundRoute?.routeName || bus.routeId;
       const marker = L.circleMarker([bus.latitude, bus.longitude], {
         radius: 10, fillColor: color, fillOpacity: 1, color: 'white', weight: 2,
       }).addTo(map).bindPopup(
@@ -312,7 +314,19 @@ function FallbackMap({ userLocation, buses, onBusClick }: MapProps) {
       markersRef.current.push(marker);
     }
 
-    // Route polyline
+    // Static route polylines from dataset (thin background lines)
+    ALL_ROUTES.forEach(route => {
+      const coords = route.stops.map(s => [s.lat, s.lng] as [number, number]);
+      if (coords.length >= 2) {
+        const line = L.polyline(coords, {
+          color: route.color, weight: 2, opacity: 0.4,
+        }).addTo(map);
+        line.bindPopup(`<b>${route.code}</b> ${route.shortName}`);
+        markersRef.current.push(line);
+      }
+    });
+
+    // Active search route polyline (on top, dashed)
     if (polylineRef.current) {
       polylineRef.current.remove();
       polylineRef.current = null;

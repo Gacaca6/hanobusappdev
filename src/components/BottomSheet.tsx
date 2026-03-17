@@ -4,6 +4,7 @@ import { Search, MapPin, Clock, Bus, Navigation, ArrowRight, X } from 'lucide-re
 import { searchDestination } from '../services/geminiService';
 import { calculateETA } from '../services/transitService';
 import { useStore } from '../store/useStore';
+import { ALL_ROUTES } from '../data/hanobus_routes';
 
 export default function BottomSheet() {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,31 +13,49 @@ export default function BottomSheet() {
   const [result, setResult] = useState<any>(null);
   const { setSearchedLocation, searchedLocation, recentSearches, addRecentSearch, routes, buses, busStops } = useStore();
 
-  // Find which routes serve the searched location (nearest stop)
+  // Find which routes serve the searched location (nearest stop from dataset)
   const suggestedRoutes = useMemo(() => {
     if (!searchedLocation) return [];
-    let nearestStop: any = null;
-    let minDist = Infinity;
-    for (const stop of busStops) {
-      const dist = Math.hypot(stop.latitude - searchedLocation.lat, stop.longitude - searchedLocation.lng);
-      if (dist < minDist) {
-        minDist = dist;
-        nearestStop = stop;
+
+    // Find routes that pass near the searched location
+    const nearby: { route: typeof ALL_ROUTES[0]; nearestStop: string; dist: number }[] = [];
+    for (const route of ALL_ROUTES) {
+      let bestStop = route.stops[0];
+      let bestDist = Infinity;
+      for (const stop of route.stops) {
+        const dist = Math.hypot(stop.lat - searchedLocation.lat, stop.lng - searchedLocation.lng);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestStop = stop;
+        }
+      }
+      if (bestDist < 0.03) { // ~3km radius
+        nearby.push({ route, nearestStop: bestStop.name, dist: bestDist });
       }
     }
-    if (!nearestStop || minDist > 0.05) return [];
 
-    return routes
-      .filter(r => nearestStop.routeIds?.includes(r.id))
-      .map(route => {
-        const activeBus = buses.find(b => b.routeId === route.id);
+    return nearby
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 5)
+      .map(({ route, nearestStop }) => {
+        const routeId = `route-${route.id}`;
+        const activeBus = buses.find(b => b.routeId === routeId);
+        const stopData = route.stops.find(s => s.name === nearestStop);
         let eta: number | null = null;
-        if (activeBus && nearestStop) {
-          eta = calculateETA(activeBus.latitude, activeBus.longitude, nearestStop.latitude, nearestStop.longitude, activeBus.speedKmH || 20);
+        if (activeBus && stopData) {
+          eta = calculateETA(activeBus.latitude, activeBus.longitude, stopData.lat, stopData.lng, activeBus.speedKmH || 20);
         }
-        return { ...route, nearestStop: nearestStop.name, eta, activeBus };
+        return {
+          id: routeId,
+          routeName: route.shortName,
+          code: route.code,
+          color: route.color,
+          nearestStop,
+          eta,
+          activeBus,
+        };
       });
-  }, [searchedLocation, routes, buses, busStops]);
+  }, [searchedLocation, buses]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,14 +132,14 @@ export default function BottomSheet() {
         {/* Route suggestions for searched location */}
         {searchedLocation && suggestedRoutes.length > 0 && !loading && (
           <div className="mb-4">
-            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Routes to {searchedLocation.name}</h4>
+            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Routes near {searchedLocation.name}</h4>
             <div className="space-y-2">
               {suggestedRoutes.map(route => (
                 <div key={route.id} className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Bus className="w-5 h-5 text-blue-600" />
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: route.color + '20' }}>
+                        <span className="text-xs font-bold" style={{ color: route.color }}>{route.code}</span>
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-gray-900">{route.routeName}</p>
