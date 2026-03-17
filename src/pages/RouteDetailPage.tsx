@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bus, Clock, MapPin, Navigation, Timer, Activity, Users, Zap, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, Bus, Clock, MapPin, Navigation, Timer, Activity, Users, Zap, BadgeCheck, AlertTriangle } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { calculateETA } from '../services/transitService';
@@ -144,6 +144,14 @@ export default function RouteDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Peak hours warning banner */}
+      {stats.isPeak && (
+        <div className="mx-4 mt-3 flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800 font-medium">{t('peakWarning')}</p>
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
