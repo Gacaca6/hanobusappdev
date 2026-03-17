@@ -35,7 +35,7 @@ export default function Layout() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-gray-100">
-      <div className="flex-1 overflow-y-auto pb-20">
+      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'calc(78px + env(safe-area-inset-bottom, 8px))' }}>
         <Outlet />
       </div>
       <BottomNav />

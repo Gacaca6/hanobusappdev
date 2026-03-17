@@ -19,7 +19,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 z-50 flex items-center justify-around px-2 pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 flex items-center justify-around px-1" style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)', height: 'calc(70px + env(safe-area-inset-bottom, 8px))' }}>
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.id;
@@ -28,12 +28,12 @@ export default function BottomNav() {
             key={item.id}
             onClick={() => navigate(item.id)}
             className={clsx(
-              "flex flex-col items-center justify-center w-16 h-full space-y-1 transition-colors",
+              "flex flex-col items-center justify-center flex-1 py-2 space-y-0.5 transition-colors rounded-xl",
               isActive ? "text-blue-600" : "text-gray-400 hover:text-gray-600"
             )}
           >
-            <Icon className={clsx("h-6 w-6", isActive && "fill-blue-100")} />
-            <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
+            <Icon className={clsx("h-6 w-6", isActive && "fill-blue-100")} strokeWidth={isActive ? 2.5 : 1.8} />
+            <span className={clsx("text-[11px]", isActive ? "font-bold" : "font-medium")}>{t(item.labelKey)}</span>
           </button>
         );
       })}
