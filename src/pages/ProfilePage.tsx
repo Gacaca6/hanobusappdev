@@ -24,7 +24,10 @@ export default function ProfilePage() {
           setIsAdmin(true);
           return;
         }
-      } catch {}
+      } catch (err) {
+        console.error('Admin role lookup failed (falling back to email check):', err);
+      }
+      // Fallback: check hardcoded admin emails even if Firestore lookup failed
       const adminEmails = ['gacacagodwin@gmail.com', 'mikelgodwin1234@gmail.com'];
       if (user.email && adminEmails.includes(user.email)) {
         setIsAdmin(true);
