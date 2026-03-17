@@ -234,6 +234,14 @@ function FallbackMap({ userLocation, buses, onBusClick }: MapProps) {
 
       if (cancelled || mapInstanceRef.current) return;
 
+      // Fix Leaflet default icon paths (bundler breaks them)
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      });
+
       const map = L.map(mapRef.current!, {
         center: center,
         zoom: 14,
@@ -298,8 +306,9 @@ function FallbackMap({ userLocation, buses, onBusClick }: MapProps) {
 
     // Search destination
     if (searchedLocation) {
-      const marker = L.marker([searchedLocation.lat, searchedLocation.lng]).addTo(map)
-        .bindPopup(`<b>${searchedLocation.name}</b>`);
+      const marker = L.circleMarker([searchedLocation.lat, searchedLocation.lng], {
+        radius: 10, fillColor: '#ef4444', fillOpacity: 1, color: 'white', weight: 3,
+      }).addTo(map).bindPopup(`<b>${searchedLocation.name}</b>`);
       markersRef.current.push(marker);
     }
 
