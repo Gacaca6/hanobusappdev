@@ -5,44 +5,33 @@
       <stop offset="100%" stop-color="#1d4ed8"/>
     </linearGradient>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.15"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.12"/>
     </filter>
   </defs>
-  <!-- Background -->
   <rect width="512" height="512" rx="108" fill="url(#bg)"/>
-  <!-- Bus body -->
-  <g transform="translate(256,226)" filter="url(#shadow)">
-    <!-- Main body -->
-    <rect x="-88" y="-110" width="176" height="190" rx="28" fill="white"/>
-    <!-- Windshield -->
-    <rect x="-68" y="-90" width="136" height="70" rx="16" fill="#93c5fd"/>
-    <!-- Windshield divider -->
-    <rect x="-2" y="-90" width="4" height="70" fill="white" opacity="0.6"/>
+  <g transform="translate(256,230)" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)">
+    <!-- Bus body -->
+    <rect x="-100" y="-120" width="200" height="190" rx="32"/>
+    <!-- Horizontal divider below windows -->
+    <line x1="-100" y1="-46" x2="100" y2="-46"/>
+    <!-- Left window -->
+    <rect x="-82" y="-106" width="64" height="50" rx="12"/>
+    <!-- Right window -->
+    <rect x="18" y="-106" width="64" height="50" rx="12"/>
     <!-- Headlights -->
-    <rect x="-76" y="-24" width="20" height="12" rx="6" fill="#fbbf24"/>
-    <rect x="56" y="-24" width="20" height="12" rx="6" fill="#fbbf24"/>
-    <!-- Side windows -->
-    <rect x="-68" y="-6" width="40" height="32" rx="8" fill="#bfdbfe"/>
-    <rect x="28" y="-6" width="40" height="32" rx="8" fill="#bfdbfe"/>
-    <!-- Door -->
-    <rect x="-12" y="-6" width="24" height="44" rx="6" fill="#dbeafe"/>
-    <circle cx="8" cy="16" r="3" fill="#93c5fd"/>
+    <circle cx="-66" cy="-18" r="12" fill="white"/>
+    <circle cx="66" cy="-18" r="12" fill="white"/>
+    <!-- Grille lines -->
+    <line x1="-66" y1="14" x2="66" y2="14"/>
+    <line x1="-66" y1="34" x2="66" y2="34"/>
     <!-- Bumper -->
-    <rect x="-76" y="48" width="152" height="12" rx="6" fill="#e2e8f0"/>
+    <line x1="-86" y1="56" x2="86" y2="56"/>
     <!-- Wheels -->
-    <circle cx="-48" cy="76" r="20" fill="#374151"/>
-    <circle cx="-48" cy="76" r="10" fill="#6b7280"/>
-    <circle cx="-48" cy="76" r="4" fill="#374151"/>
-    <circle cx="48" cy="76" r="20" fill="#374151"/>
-    <circle cx="48" cy="76" r="10" fill="#6b7280"/>
-    <circle cx="48" cy="76" r="4" fill="#374151"/>
-    <!-- Roof rack -->
-    <rect x="-60" y="-118" width="120" height="12" rx="6" fill="white" opacity="0.7"/>
+    <circle cx="-54" cy="78" r="24" fill="white"/>
+    <circle cx="-54" cy="78" r="10" fill="#2563eb"/>
+    <circle cx="54" cy="78" r="24" fill="white"/>
+    <circle cx="54" cy="78" r="10" fill="#2563eb"/>
   </g>
   <!-- App name -->
-  <text x="256" y="430" text-anchor="middle" font-family="system-ui,-apple-system,Arial,sans-serif" font-size="56" font-weight="800" fill="white" letter-spacing="-1">HanoBus</text>
-  <!-- Subtle location pin accent -->
-  <g transform="translate(380,120)" opacity="0.3">
-    <path d="M0-24c-13.2 0-24 10.8-24 24 0 18 24 40 24 40s24-22 24-40c0-13.2-10.8-24-24-24zm0 32c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z" fill="white"/>
-  </g>
+  <text x="256" y="442" text-anchor="middle" font-family="system-ui,-apple-system,Arial,sans-serif" font-size="56" font-weight="800" fill="white" letter-spacing="-1">HanoBus</text>
 </svg>
