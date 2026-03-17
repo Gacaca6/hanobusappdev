@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { calculateETA } from '../services/transitService';
 import { useBusSimulation } from '../services/busSimulation';
-import Map from '../components/Map';
+import MapView from '../components/Map';
 import BottomSheet from '../components/BottomSheet';
 import { Bell, X, Bus, Clock, Navigation, MapPin, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -232,7 +232,7 @@ export default function Home() {
       )}
 
       {/* Map Layer */}
-      <Map userLocation={userLocation} buses={busesWithETA} onBusClick={handleBusClick} />
+      <MapView userLocation={userLocation} buses={busesWithETA} onBusClick={handleBusClick} />
 
       {/* Nearest Stop Card */}
       {nearestStop && !showBusCard && !searchedLocation && (
