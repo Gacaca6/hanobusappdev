@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { Route, Bus, Alert } from '../services/transitService';
-import { Shield, MapPin, Bus as BusIcon, Bell, Plus, Trash2, Edit2, X, Save, ChevronLeft } from 'lucide-react';
+import { Shield, MapPin, Bus as BusIcon, Bell, Plus, Trash2, Edit2, X, Save, ChevronLeft, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 type Tab = 'routes' | 'buses' | 'alerts';
+type ToastType = 'success' | 'error';
 
 export default function AdminPage() {
   const { routes, buses, alerts, busStops } = useStore();
@@ -16,6 +17,20 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('routes');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToast({ message, type });
+  };
 
   // Route form
   const [routeForm, setRouteForm] = useState({ routeName: '', startLocation: '', endLocation: '', distanceKm: '', avgTravelTimeMins: '' });
@@ -26,17 +41,32 @@ export default function AdminPage() {
 
   const handleDeleteRoute = async (id: string) => {
     if (!confirm(t('confirmDelete'))) return;
-    try { await deleteDoc(doc(db, 'routes', id)); } catch (e) { console.error(e); }
+    try {
+      await deleteDoc(doc(db, 'routes', id));
+      showToast(t('routeDeleted'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const handleDeleteBus = async (id: string) => {
     if (!confirm(t('confirmDelete'))) return;
-    try { await deleteDoc(doc(db, 'buses', id)); } catch (e) { console.error(e); }
+    try {
+      await deleteDoc(doc(db, 'buses', id));
+      showToast(t('busDeleted'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const handleDeleteAlert = async (id: string) => {
     if (!confirm(t('confirmDelete'))) return;
-    try { await deleteDoc(doc(db, 'alerts', id)); } catch (e) { console.error(e); }
+    try {
+      await deleteDoc(doc(db, 'alerts', id));
+      showToast(t('alertDeleted'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const handleAddRoute = async () => {
@@ -52,7 +82,10 @@ export default function AdminPage() {
       });
       setRouteForm({ routeName: '', startLocation: '', endLocation: '', distanceKm: '', avgTravelTimeMins: '' });
       setShowAddForm(false);
-    } catch (e) { console.error(e); }
+      showToast(t('routeCreated'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const handleAddAlert = async () => {
@@ -67,7 +100,10 @@ export default function AdminPage() {
       });
       setAlertForm({ message: '', severity: 'low', routeId: '' });
       setShowAddForm(false);
-    } catch (e) { console.error(e); }
+      showToast(t('alertCreated'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const handleAddBus = async () => {
@@ -86,7 +122,10 @@ export default function AdminPage() {
       });
       setBusForm({ routeId: '', nextStop: '' });
       setShowAddForm(false);
-    } catch (e) { console.error(e); }
+      showToast(t('busCreated'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const handleEditRoute = async (route: Route) => {
@@ -101,7 +140,10 @@ export default function AdminPage() {
       });
       setEditingId(null);
       setRouteForm({ routeName: '', startLocation: '', endLocation: '', distanceKm: '', avgTravelTimeMins: '' });
-    } catch (e) { console.error(e); }
+      showToast(t('routeUpdated'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const handleEditAlert = async (alert: Alert) => {
@@ -114,7 +156,10 @@ export default function AdminPage() {
       });
       setEditingId(null);
       setAlertForm({ message: '', severity: 'low', routeId: '' });
-    } catch (e) { console.error(e); }
+      showToast(t('alertUpdated'));
+    } catch (e) {
+      showToast(t('operationFailed'), 'error');
+    }
   };
 
   const tabs: { key: Tab; icon: React.ReactNode; label: string }[] = [
@@ -125,6 +170,21 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-full bg-gray-50 flex flex-col">
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed top-6 left-4 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg animate-bounce ${
+          toast.type === 'success'
+            ? 'bg-green-600 text-white'
+            : 'bg-red-600 text-white'
+        }`}>
+          {toast.type === 'success'
+            ? <CheckCircle className="w-5 h-5 shrink-0" />
+            : <AlertTriangle className="w-5 h-5 shrink-0" />
+          }
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gray-900 px-6 pt-12 pb-6 text-white shadow-md">
         <div className="flex items-center gap-3 mb-4">
@@ -169,8 +229,8 @@ export default function AdminPage() {
             <input value={routeForm.startLocation} onChange={e => setRouteForm({ ...routeForm, startLocation: e.target.value })} placeholder={t('startLocation')} className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500" />
             <input value={routeForm.endLocation} onChange={e => setRouteForm({ ...routeForm, endLocation: e.target.value })} placeholder={t('endLocation')} className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500" />
             <div className="flex gap-3">
-              <input value={routeForm.distanceKm} onChange={e => setRouteForm({ ...routeForm, distanceKm: e.target.value })} placeholder="Distance (km)" type="number" className="flex-1 px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-              <input value={routeForm.avgTravelTimeMins} onChange={e => setRouteForm({ ...routeForm, avgTravelTimeMins: e.target.value })} placeholder="Avg time (min)" type="number" className="flex-1 px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={routeForm.distanceKm} onChange={e => setRouteForm({ ...routeForm, distanceKm: e.target.value })} placeholder={t('distanceKm')} type="number" className="flex-1 px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={routeForm.avgTravelTimeMins} onChange={e => setRouteForm({ ...routeForm, avgTravelTimeMins: e.target.value })} placeholder={t('avgTimeMin')} type="number" className="flex-1 px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <button onClick={handleAddRoute} className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
               <Save className="w-4 h-4" /> {t('save')}
@@ -189,7 +249,7 @@ export default function AdminPage() {
               ))}
             </div>
             <select value={alertForm.routeId} onChange={e => setAlertForm({ ...alertForm, routeId: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">All routes</option>
+              <option value="">{t('allRoutes')}</option>
               {routes.map(r => <option key={r.id} value={r.id}>{r.routeName}</option>)}
             </select>
             <button onClick={handleAddAlert} className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
@@ -201,11 +261,11 @@ export default function AdminPage() {
         {showAddForm && activeTab === 'buses' && (
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4 space-y-3">
             <select value={busForm.routeId} onChange={e => setBusForm({ ...busForm, routeId: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Select route</option>
+              <option value="">{t('selectRoute')}</option>
               {routes.map(r => <option key={r.id} value={r.id}>{r.routeName}</option>)}
             </select>
             <select value={busForm.nextStop} onChange={e => setBusForm({ ...busForm, nextStop: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Starting stop</option>
+              <option value="">{t('selectStop')}</option>
               {busStops.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
             </select>
             <button onClick={handleAddBus} className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
@@ -263,7 +323,7 @@ export default function AdminPage() {
                     <div>
                       <h3 className="font-semibold text-gray-900">{bus.id.toUpperCase()}</h3>
                       <p className="text-sm text-gray-500">{route?.routeName || bus.routeId}</p>
-                      <p className="text-xs text-gray-400">{Math.round(bus.speedKmH || 0)} km/h • Next: {bus.nextStop}</p>
+                      <p className="text-xs text-gray-400">{Math.round(bus.speedKmH || 0)} km/h • {t('nextStop')}: {bus.nextStop}</p>
                     </div>
                   </div>
                   <button onClick={() => handleDeleteBus(bus.id)} className="p-2 hover:bg-red-50 rounded-full"><Trash2 className="w-4 h-4 text-red-400" /></button>
@@ -300,7 +360,7 @@ export default function AdminPage() {
                       <div className={`w-3 h-3 rounded-full mt-1.5 shrink-0 ${alert.severity === 'high' ? 'bg-red-500' : alert.severity === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'}`} />
                       <div>
                         <p className="text-sm text-gray-900">{alert.message}</p>
-                        <p className="text-xs text-gray-400 mt-1 capitalize">{alert.severity} • {alert.routeId || 'All routes'}</p>
+                        <p className="text-xs text-gray-400 mt-1 capitalize">{alert.severity} • {alert.routeId || t('allRoutes')}</p>
                       </div>
                     </div>
                     <div className="flex gap-1 shrink-0">
