@@ -1,8 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, MapPin, Plus, Trash2, Home, Briefcase, Star, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { addFavorite, removeFavorite } from '../services/transitService';
+
+function FavoriteSkeletons() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="skeleton h-12 w-12 rounded-full shrink-0" />
+          <div className="flex-1">
+            <div className="skeleton h-4 w-2/4 mb-2" />
+            <div className="skeleton h-3 w-3/5" />
+          </div>
+          <div className="skeleton h-8 w-8 rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function FavoritesPage() {
   const { favorites, user, busStops } = useStore();
@@ -11,6 +28,16 @@ export default function FavoritesPage() {
   const [newFav, setNewFav] = useState({ name: '', address: '', type: 'other' as 'home' | 'work' | 'other' });
   const [selectedStop, setSelectedStop] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (favorites.length > 0) {
+      setIsLoading(false);
+    } else {
+      const timer = setTimeout(() => setIsLoading(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [favorites]);
 
   const handleAdd = async () => {
     if (!user || !newFav.name.trim()) return;
@@ -132,7 +159,9 @@ export default function FavoritesPage() {
 
         {/* Favorites List */}
         <div className="space-y-3">
-          {favorites.length > 0 ? (
+          {isLoading ? (
+            <FavoriteSkeletons />
+          ) : favorites.length > 0 ? (
             favorites.map((fav) => (
               <div key={fav.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-4">

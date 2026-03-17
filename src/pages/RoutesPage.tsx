@@ -1,14 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapIcon, Search, Navigation, Bus, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { calculateETA } from '../services/transitService';
+
+function RouteSkeletons() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+          <div className="skeleton h-12 w-12 rounded-full shrink-0" />
+          <div className="flex-1">
+            <div className="skeleton h-4 w-3/5 mb-2" />
+            <div className="skeleton h-3 w-2/5" />
+          </div>
+          <div className="skeleton h-6 w-16 rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function RoutesPage() {
   const { routes, buses, busStops } = useStore();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (routes.length > 0) {
+      setIsLoading(false);
+    } else {
+      const timer = setTimeout(() => setIsLoading(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [routes]);
 
   const filteredRoutes = routes.filter(route =>
     route.routeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,7 +82,9 @@ export default function RoutesPage() {
         </div>
 
         <div className="space-y-3">
-          {filteredRoutes.length > 0 ? (
+          {isLoading ? (
+            <RouteSkeletons />
+          ) : filteredRoutes.length > 0 ? (
             filteredRoutes.map((route) => {
               const routeBuses = getRouteBuses(route.id);
               const isExpanded = expandedRoute === route.id;
