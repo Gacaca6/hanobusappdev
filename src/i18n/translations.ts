@@ -91,6 +91,7 @@ export const translations = {
     settings: 'Settings',
     helpSupport: 'Help & Support',
     signOut: 'Sign Out',
+    comingSoon: 'Coming soon!',
     commuter: 'Commuter',
     language: 'Language',
 
@@ -221,6 +222,7 @@ export const translations = {
     settings: 'Igenamiterere',
     helpSupport: 'Ubufasha n\'Inkunga',
     signOut: 'Gusohoka',
+    comingSoon: 'Biraza vuba!',
     commuter: 'Ugendera',
     language: 'Ururimi',
 

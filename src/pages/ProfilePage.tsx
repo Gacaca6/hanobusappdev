@@ -46,6 +46,13 @@ export default function ProfilePage() {
     setNotifPermission(permission);
   };
 
+  const [toast, setToast] = useState(false);
+
+  const showComingSoon = () => {
+    setToast(true);
+    setTimeout(() => setToast(false), 2000);
+  };
+
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'rw' : 'en');
   };
@@ -112,7 +119,7 @@ export default function ProfilePage() {
 
         {/* Main Menu */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+          <button onClick={showComingSoon} className="w-full p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-blue-50 rounded-full flex items-center justify-center">
                 <CreditCard className="h-5 w-5 text-blue-600" />
@@ -120,8 +127,8 @@ export default function ProfilePage() {
               <span className="font-medium text-gray-900">{t('paymentMethods')}</span>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-400" />
-          </div>
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+          </button>
+          <button onClick={showComingSoon} className="w-full p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
                 <Settings className="h-5 w-5 text-gray-600" />
@@ -129,8 +136,8 @@ export default function ProfilePage() {
               <span className="font-medium text-gray-900">{t('settings')}</span>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-400" />
-          </div>
-          <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+          </button>
+          <button onClick={showComingSoon} className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
                 <HelpCircle className="h-5 w-5 text-gray-600" />
@@ -138,8 +145,15 @@ export default function ProfilePage() {
               <span className="font-medium text-gray-900">{t('helpSupport')}</span>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-400" />
-          </div>
+          </button>
         </div>
+
+        {/* Coming Soon Toast */}
+        {toast && (
+          <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium animate-bounce">
+            {t('comingSoon')}
+          </div>
+        )}
 
         {/* Admin Panel */}
         {isAdmin && (
