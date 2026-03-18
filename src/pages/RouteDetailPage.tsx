@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bus, Clock, MapPin, Navigation, Timer, Activity, Users, Zap, BadgeCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Bus, Clock, MapPin, Navigation, Timer, Activity, Users, Zap, BadgeCheck, AlertTriangle, Heart } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/useTranslation';
-import { calculateETA } from '../services/transitService';
+import { calculateETA, addFavorite, removeFavorite } from '../services/transitService';
 import { ALL_ROUTES, QueueTheory, RESEARCH_CONSTANTS } from '../data/hanobus_routes';
 import type { Route as DataRoute } from '../data/hanobus_routes';
 
@@ -55,10 +55,41 @@ function getRouteStats(route: DataRoute) {
 export default function RouteDetailPage() {
   const { routeId } = useParams<{ routeId: string }>();
   const navigate = useNavigate();
-  const { buses, busStops } = useStore();
+  const { buses, busStops, favorites, user } = useStore();
   const { t } = useTranslation();
+  const [favLoading, setFavLoading] = useState(false);
 
   const route = useMemo(() => ALL_ROUTES.find(r => r.id === routeId), [routeId]);
+
+  // Check if this route is already favorited
+  const existingFav = useMemo(() => {
+    if (!route) return null;
+    return favorites.find(f => f.name === route.shortName && (f as any).type === 'route') || null;
+  }, [favorites, route]);
+
+  const isFavorited = !!existingFav;
+
+  const toggleFavorite = async () => {
+    if (!user || !route || favLoading) return;
+    setFavLoading(true);
+    try {
+      if (existingFav) {
+        await removeFavorite(user.uid, existingFav.id);
+      } else {
+        await addFavorite(user.uid, {
+          name: route.shortName,
+          address: route.name,
+          type: 'other' as const,
+          latitude: route.stops[0].lat,
+          longitude: route.stops[0].lng,
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    } finally {
+      setFavLoading(false);
+    }
+  };
 
   const stats = useMemo(() => route ? getRouteStats(route) : null, [route]);
 
@@ -105,7 +136,7 @@ export default function RouteDetailPage() {
             <span className="text-sm font-medium">{t('busRoutes')}</span>
           </button>
 
-          {/* Route code + name */}
+          {/* Route code + name + favorite */}
           <div className="flex items-center gap-3">
             <div
               className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm"
@@ -117,6 +148,16 @@ export default function RouteDetailPage() {
               <h1 className="text-lg font-bold text-gray-900 leading-tight">{route.shortName}</h1>
               <p className="text-sm text-gray-500 mt-0.5 truncate">{route.name}</p>
             </div>
+            <button
+              onClick={toggleFavorite}
+              disabled={favLoading}
+              className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-colors active:scale-90 disabled:opacity-50"
+              style={{ backgroundColor: isFavorited ? '#fef2f2' : '#f3f4f6' }}
+            >
+              <Heart
+                className={`w-5 h-5 transition-colors ${isFavorited ? 'text-red-500 fill-red-500' : 'text-gray-400'}`}
+              />
+            </button>
           </div>
 
           {/* Badges */}

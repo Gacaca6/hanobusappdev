@@ -230,6 +230,8 @@ function FallbackMap(props: MapProps) {
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const polylineRef = useRef<any>(null);
+  const leafletRef = useRef<any>(null);
+  const [mapReady, setMapReady] = React.useState(false);
 
   const defaultCenter: [number, number] = [-1.9441, 30.0619];
   const center = searchedLocation
@@ -244,6 +246,9 @@ function FallbackMap(props: MapProps) {
       await import('leaflet/dist/leaflet.css');
 
       if (cancelled || mapInstanceRef.current) return;
+
+      // Store Leaflet reference for the markers useEffect
+      leafletRef.current = L;
 
       // Fix Leaflet default icon paths (bundler breaks them)
       delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -264,6 +269,7 @@ function FallbackMap(props: MapProps) {
       }).addTo(map);
 
       mapInstanceRef.current = map;
+      setMapReady(true);
     })();
 
     return () => {
@@ -276,10 +282,11 @@ function FallbackMap(props: MapProps) {
   }, []);
 
   useEffect(() => {
+    if (!mapReady) return;
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const L = (window as any).L;
+    const L = leafletRef.current;
     if (!L) return;
 
     // Clear old markers
@@ -359,7 +366,7 @@ function FallbackMap(props: MapProps) {
     } else {
       map.setView(center, 14);
     }
-  }, [userLocation, buses, busStops, searchedLocation, routePolyline, routes, center]);
+  }, [mapReady, userLocation, buses, busStops, searchedLocation, routePolyline, routes, center]);
 
   return (
     <div className="w-full h-full absolute inset-0 z-0">

@@ -22,7 +22,7 @@ export default function BottomNav() {
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 flex items-center justify-around px-1" style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)', height: 'calc(70px + env(safe-area-inset-bottom, 8px))' }}>
       {navItems.map((item) => {
         const Icon = item.icon;
-        const isActive = location.pathname === item.id;
+        const isActive = item.id === '/' ? location.pathname === '/' : location.pathname.startsWith(item.id);
         return (
           <button
             key={item.id}
