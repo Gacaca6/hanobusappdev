@@ -184,8 +184,8 @@ export default function MapComponent(props: MapProps) {
                   onBusClick?.(bus);
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))' }}>
-                  <img src="/bus-icon.png" alt="" style={{ width: '28px', height: 'auto' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <img src="/bus-icon.png" alt="" style={{ width: '28px', height: 'auto', filter: 'brightness(0) saturate(100%) drop-shadow(0 2px 3px rgba(0,0,0,0.25))' }} />
                   <span style={{
                     background: color, color: 'white', fontSize: '9px',
                     fontWeight: 700, padding: '1px 5px', borderRadius: '6px',
@@ -332,7 +332,7 @@ function FallbackMap(props: MapProps) {
 
       const pillIcon = L.divIcon({
         className: '',
-        html: `<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3))"><img src="/bus-icon.png" style="width:28px;height:auto" /><span style="background:${color};color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;margin-top:-4px;border:1.5px solid white;position:relative;z-index:1">${code}</span></div>`,
+        html: `<div style="display:flex;flex-direction:column;align-items:center"><img src="/bus-icon.png" style="width:28px;height:auto;filter:brightness(0) saturate(100%) drop-shadow(0 2px 3px rgba(0,0,0,0.25))" /><span style="background:${color};color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;margin-top:-4px;border:1.5px solid white;position:relative;z-index:1">${code}</span></div>`,
         iconSize: [32, 40],
         iconAnchor: [16, 40],
       });
