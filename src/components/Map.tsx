@@ -184,22 +184,13 @@ export default function MapComponent(props: MapProps) {
                   onBusClick?.(bus);
                 }}
               >
-                <div
-                  style={{
-                    background: color,
-                    color: 'white',
-                    fontSize: '10px',
-                    fontWeight: 'bold',
-                    padding: '2px 6px',
-                    borderRadius: '10px',
-                    whiteSpace: 'nowrap',
-                    border: '2px solid white',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                    textAlign: 'center',
-                    lineHeight: '14px',
-                  }}
-                >
-                  {bus.routeCode || '?'}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))' }}>
+                  <span style={{ fontSize: '24px', lineHeight: 1 }}>🚌</span>
+                  <span style={{
+                    background: color, color: 'white', fontSize: '9px',
+                    fontWeight: 700, padding: '1px 5px', borderRadius: '6px',
+                    marginTop: '-2px', border: '1.5px solid white',
+                  }}>{bus.routeCode || '?'}</span>
                 </div>
               </AdvancedMarker>
             );
@@ -340,9 +331,9 @@ function FallbackMap(props: MapProps) {
 
       const pillIcon = L.divIcon({
         className: '',
-        html: `<div style="background:${color};color:white;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:10px;white-space:nowrap;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);text-align:center;line-height:14px;">${code}</div>`,
-        iconSize: [0, 0],
-        iconAnchor: [14, 9],
+        html: `<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3))"><span style="font-size:24px;line-height:1">🚌</span><span style="background:${color};color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:6px;margin-top:-2px;border:1.5px solid white">${code}</span></div>`,
+        iconSize: [32, 36],
+        iconAnchor: [16, 36],
       });
 
       const marker = L.marker([bus.latitude, bus.longitude], { icon: pillIcon })
