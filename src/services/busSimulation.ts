@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from 'react';
 import { ALL_ROUTES } from '../data/hanobus_routes';
 import type { Route as DataRoute, Stop } from '../data/hanobus_routes';
 
+const MAX_TOTAL_BUSES = 70;
+
 export interface SimulatedBus {
   id: string;
   routeId: string;         // e.g. "302"
@@ -63,23 +65,73 @@ function interpolatePosition(
   return { lat: last.lat, lng: last.lng, nextStopIdx: stops.length - 1 };
 }
 
+/**
+ * Allocate bus counts per route, respecting MAX_TOTAL_BUSES cap.
+ * Higher-traffic routes get proportionally more buses.
+ */
+function allocateBusCounts(): Map<string, number> {
+  // 1/4 of daily fleet, minimum 1
+  const rawCounts = ALL_ROUTES
+    .filter(r => r.stops.length >= 2)
+    .map(r => ({
+      id: r.id,
+      raw: Math.max(1, Math.round(r.avgBusesPerDay / 4)),
+      daily: r.avgBusesPerDay,
+    }));
+
+  const totalRaw = rawCounts.reduce((s, r) => s + r.raw, 0);
+
+  const counts = new Map<string, number>();
+
+  if (totalRaw <= MAX_TOTAL_BUSES) {
+    // Under cap — use raw counts directly
+    for (const r of rawCounts) counts.set(r.id, r.raw);
+  } else {
+    // Over cap — scale proportionally by daily traffic
+    const totalDaily = rawCounts.reduce((s, r) => s + r.daily, 0);
+    let assigned = 0;
+    for (const r of rawCounts) {
+      const share = Math.max(1, Math.round((r.daily / totalDaily) * MAX_TOTAL_BUSES));
+      counts.set(r.id, share);
+      assigned += share;
+    }
+    // Trim overflow from lowest-traffic routes
+    if (assigned > MAX_TOTAL_BUSES) {
+      const sorted = [...counts.entries()].sort((a, b) => {
+        const aDaily = rawCounts.find(r => r.id === a[0])!.daily;
+        const bDaily = rawCounts.find(r => r.id === b[0])!.daily;
+        return aDaily - bDaily; // lowest traffic first
+      });
+      let excess = assigned - MAX_TOTAL_BUSES;
+      for (const [id, count] of sorted) {
+        if (excess <= 0) break;
+        const reduce = Math.min(count - 1, excess); // keep at least 1
+        counts.set(id, count - reduce);
+        excess -= reduce;
+      }
+    }
+  }
+
+  return counts;
+}
+
 // Create initial buses for all routes
 function createInitialBuses(): SimulatedBus[] {
   const buses: SimulatedBus[] = [];
+  const busCounts = allocateBusCounts();
 
   for (const route of ALL_ROUTES) {
     if (route.stops.length < 2) continue;
 
-    // Show ~1/3 of daily fleet at any time (round trips + rest)
-    const count = Math.max(1, Math.round(route.avgBusesPerDay / 3));
+    const count = busCounts.get(route.id) || 1;
     const cumDists = getSegmentDistances(route.stops);
     const avgSpeed = route.distanceKm / (route.estimatedTravelTimeMin / 60); // km/h
 
     for (let i = 0; i < count; i++) {
-      // Spread buses evenly with some randomness
+      // Even spacing: i/N with small random offset (±0.03)
       const baseProgress = i / count;
-      const jitter = (Math.random() - 0.5) * (1 / count) * 0.5;
-      const progress = Math.max(0, Math.min(0.999, baseProgress + jitter));
+      const jitter = (Math.random() - 0.5) * 0.06; // ±0.03
+      const progress = Math.max(0.01, Math.min(0.99, baseProgress + jitter));
 
       const pos = interpolatePosition(route.stops, cumDists, progress);
       const nextStopName = route.stops[pos.nextStopIdx]?.name || route.stops[route.stops.length - 1].name;
@@ -111,23 +163,48 @@ function createInitialBuses(): SimulatedBus[] {
   return buses;
 }
 
-// Advance all buses by one tick
+// Advance all buses by one tick, with anti-bunching logic
 function advanceBuses(buses: SimulatedBus[]): SimulatedBus[] {
+  // Group buses by route for proximity checks
+  const byRoute = new Map<string, SimulatedBus[]>();
+  for (const bus of buses) {
+    const arr = byRoute.get(bus.routeId) || [];
+    arr.push(bus);
+    byRoute.set(bus.routeId, arr);
+  }
+
   return buses.map(bus => {
     const route = ALL_ROUTES.find(r => r.id === bus.routeId);
     if (!route || route.stops.length < 2) return bus;
 
-    // Random advancement: 0.002 to 0.005 per tick (3 sec)
-    const delta = 0.002 + Math.random() * 0.003;
+    // Base advancement: 0.002 to 0.005 per tick (3 sec)
+    let delta = 0.002 + Math.random() * 0.003;
 
     // Deviating buses move slower
-    const effectiveDelta = bus.isDeviating ? delta * 0.5 : delta;
+    if (bus.isDeviating) delta *= 0.5;
 
-    let newProgress = bus.progress + effectiveDelta;
+    // Anti-bunching: check distance to neighbors on same route
+    const siblings = byRoute.get(bus.routeId) || [];
+    for (const other of siblings) {
+      if (other.id === bus.id) continue;
+      const gap = other.progress - bus.progress;
+      // Bus ahead within 0.05 progress — slow down this bus
+      if (gap > 0 && gap < 0.05) {
+        delta *= 0.4;
+        break;
+      }
+      // Bus behind within 0.05 progress — speed up this bus
+      if (gap < 0 && gap > -0.05) {
+        delta *= 1.5;
+        break;
+      }
+    }
+
+    let newProgress = bus.progress + delta;
 
     // Reset when reaching end (round trip)
     if (newProgress >= 1.0) {
-      newProgress = 0.0;
+      newProgress = 0.01;
     }
 
     const cumDists = getSegmentDistances(route.stops);
