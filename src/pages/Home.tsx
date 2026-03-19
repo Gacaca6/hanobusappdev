@@ -4,10 +4,11 @@ import { calculateETA } from '../services/transitService';
 import { useBusSimulation } from '../services/busSimulation';
 import MapView from '../components/Map';
 import BottomSheet from '../components/BottomSheet';
-import { Bell, X, Bus, Clock, Navigation, MapPin, Info } from 'lucide-react';
+import { Bell, X, Bus, Clock, Navigation, MapPin, Info, Timer, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n/useTranslation';
 import { ALL_ROUTES } from '../data/hanobus_routes';
+import type { Route as DataRoute } from '../data/hanobus_routes';
 
 // Build stop index (same pattern as BottomSheet)
 interface StopEntry {
@@ -46,14 +47,21 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 }
 
 export default function Home() {
-  const { alerts, searchedLocation, setRoutePolyline, busStops, routes, selectedBus, setSelectedBus } = useStore();
+  const { alerts, searchedLocation, setSearchedLocation, setRoutePolyline, busStops, routes, selectedBus, setSelectedBus } = useStore();
   const simulatedBuses = useBusSimulation();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [showBusCard, setShowBusCard] = useState(false);
   const [showLocationBanner, setShowLocationBanner] = useState(true);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  // Selected route data
+  const selectedRoute: DataRoute | null = useMemo(() => {
+    if (!selectedRouteId) return null;
+    return ALL_ROUTES.find(r => r.id === selectedRouteId) || null;
+  }, [selectedRouteId]);
 
   // Convert simulated buses to the shape the map & UI expect
   const busesWithETA = useMemo(() => {
@@ -153,6 +161,29 @@ export default function Home() {
   const handleBusClick = (bus: any) => {
     setSelectedBus(bus);
     setShowBusCard(true);
+    // Also select the bus's route on the map
+    const routeId = bus.routeId?.replace('route-', '') || null;
+    if (routeId) handleRouteSelect(routeId);
+  };
+
+  // Handle route selection from search/nearby cards — show on map, don't navigate
+  const handleRouteSelect = (routeId: string) => {
+    setSelectedRouteId(routeId);
+    const route = ALL_ROUTES.find(r => r.id === routeId);
+    if (route) {
+      // Set polyline from route stops
+      const polyline: [number, number][] = route.stops.map(s => [s.lat, s.lng]);
+      setRoutePolyline(polyline);
+      // Clear any searched location marker
+      setSearchedLocation(null);
+    }
+  };
+
+  const handleClearRoute = () => {
+    setSelectedRouteId(null);
+    setRoutePolyline(null);
+    setShowBusCard(false);
+    setSelectedBus(null);
   };
 
   const selectedBusData = selectedBus ? busesWithETA.find(b => b.id === selectedBus.id) || selectedBus : null;
@@ -231,8 +262,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* Map Layer */}
-      <MapView userLocation={userLocation} buses={busesWithETA} onBusClick={handleBusClick} />
+      {/* Map Layer — filter buses if a route is selected */}
+      <MapView
+        userLocation={userLocation}
+        buses={selectedRouteId
+          ? busesWithETA.filter(b => b.routeId === `route-${selectedRouteId}`)
+          : busesWithETA
+        }
+        onBusClick={handleBusClick}
+      />
 
       {/* Nearest Stop Card */}
       {nearestStop && !showBusCard && !searchedLocation && (
@@ -336,8 +374,68 @@ export default function Home() {
         </div>
       )}
 
+      {/* Selected Route Info Card */}
+      {selectedRoute && !showBusCard && (
+        <div className="absolute left-4 right-4 z-10 pointer-events-auto" style={{ bottom: 'calc(env(safe-area-inset-bottom, 8px) + 80px)' }}>
+          <div className="bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: selectedRoute.color + '20' }}
+                >
+                  <span className="text-sm font-extrabold" style={{ color: selectedRoute.color }}>
+                    {selectedRoute.code}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-gray-900 truncate">{selectedRoute.shortName}</h3>
+                  <p className="text-xs text-gray-500">{selectedRoute.stops.length} {t('stops').toLowerCase()}</p>
+                </div>
+              </div>
+              <button onClick={handleClearRoute} className="p-1.5 hover:bg-gray-100 rounded-full">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                <Navigation className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: selectedRoute.color }} />
+                <p className="text-sm font-bold text-gray-900">{selectedRoute.distanceKm}</p>
+                <p className="text-[9px] text-gray-500 uppercase">km</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                <Clock className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: selectedRoute.color }} />
+                <p className="text-sm font-bold text-gray-900">{Math.round(selectedRoute.estimatedTravelTimeMin)}</p>
+                <p className="text-[9px] text-gray-500 uppercase">min</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                <Timer className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: selectedRoute.color }} />
+                <p className="text-sm font-bold text-gray-900">{selectedRoute.avgHeadwayMin}</p>
+                <p className="text-[9px] text-gray-500 uppercase">{t('headway')}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                <Bus className="w-3.5 h-3.5 mx-auto mb-0.5" style={{ color: selectedRoute.color }} />
+                <p className="text-sm font-bold text-gray-900">
+                  {busesWithETA.filter(b => b.routeId === `route-${selectedRoute.id}`).length}
+                </p>
+                <p className="text-[9px] text-gray-500 uppercase">{t('activeBuses')}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate(`/routes/${selectedRoute.id}`)}
+              className="w-full mt-3 py-2.5 text-sm font-semibold rounded-xl transition-colors"
+              style={{ backgroundColor: selectedRoute.color + '15', color: selectedRoute.color }}
+            >
+              {t('viewDetails')} →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Sheet Overlay */}
-      {!showBusCard && <BottomSheet />}
+      {!showBusCard && !selectedRoute && <BottomSheet onRouteSelect={handleRouteSelect} />}
     </div>
   );
 }

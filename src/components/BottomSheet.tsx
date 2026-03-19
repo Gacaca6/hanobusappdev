@@ -46,7 +46,11 @@ ALL_ROUTES.forEach(route => {
 
 const allStops = Array.from(stopIndex.values());
 
-export default function BottomSheet() {
+interface BottomSheetProps {
+  onRouteSelect?: (routeId: string) => void;
+}
+
+export default function BottomSheet({ onRouteSelect }: BottomSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -160,7 +164,14 @@ export default function BottomSheet() {
   };
 
   const handleRouteSelect = (routeId: string) => {
-    navigate(`/routes/${routeId}`);
+    if (onRouteSelect) {
+      onRouteSelect(routeId);
+      setIsOpen(false);
+      setQuery('');
+      setSelectedStop(null);
+    } else {
+      navigate(`/routes/${routeId}`);
+    }
   };
 
   const handleClearSearch = () => {
