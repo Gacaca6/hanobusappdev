@@ -2,6 +2,9 @@
  * Bus Simulation Service
  * Generates realistic mock bus positions along ALL_ROUTES.
  * Uses setInterval (no Firestore) — pure client-side demo data.
+ *
+ * Movement model: all buses on a route move at the SAME constant speed.
+ * Strict spacing enforcement on every tick prevents collisions.
  */
 import { useState, useEffect, useRef } from 'react';
 import { ALL_ROUTES } from '../data/hanobus_routes';
@@ -11,9 +14,9 @@ const MAX_TOTAL_BUSES = 70;
 
 export interface SimulatedBus {
   id: string;
-  routeId: string;         // e.g. "302"
-  routeCode: string;       // e.g. "302"
-  routeName: string;       // short name
+  routeId: string;
+  routeCode: string;
+  routeName: string;
   routeColor: string;
   latitude: number;
   longitude: number;
@@ -22,14 +25,13 @@ export interface SimulatedBus {
   nextStop: string;
   estimatedArrivalMin: number;
   isDeviating: boolean;
+  held: boolean;           // true = waiting at terminal for space
 }
 
-// Interpolate between two stops based on fraction t (0..1)
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-// Get the cumulative segment distances for a route's stops
 function getSegmentDistances(stops: Stop[]): number[] {
   const dists: number[] = [0];
   for (let i = 1; i < stops.length; i++) {
@@ -40,7 +42,6 @@ function getSegmentDistances(stops: Stop[]): number[] {
   return dists;
 }
 
-// Given a progress (0..1), find the interpolated lat/lng along the stops
 function interpolatePosition(
   stops: Stop[],
   cumDists: number[],
@@ -60,9 +61,15 @@ function interpolatePosition(
       };
     }
   }
-  // At the end
   const last = stops[stops.length - 1];
   return { lat: last.lat, lng: last.lng, nextStopIdx: stops.length - 1 };
+}
+
+/** Constant speed per tick based on route length (no randomness) */
+function getProgressPerTick(distanceKm: number): number {
+  if (distanceKm > 10) return 0.003;   // long routes — slow progress
+  if (distanceKm >= 5) return 0.005;   // medium routes
+  return 0.007;                          // short routes — fast progress
 }
 
 /**
@@ -70,7 +77,6 @@ function interpolatePosition(
  * Higher-traffic routes get proportionally more buses.
  */
 function allocateBusCounts(): Map<string, number> {
-  // 1/4 of daily fleet, minimum 1
   const rawCounts = ALL_ROUTES
     .filter(r => r.stops.length >= 2)
     .map(r => ({
@@ -80,14 +86,11 @@ function allocateBusCounts(): Map<string, number> {
     }));
 
   const totalRaw = rawCounts.reduce((s, r) => s + r.raw, 0);
-
   const counts = new Map<string, number>();
 
   if (totalRaw <= MAX_TOTAL_BUSES) {
-    // Under cap — use raw counts directly
     for (const r of rawCounts) counts.set(r.id, r.raw);
   } else {
-    // Over cap — scale proportionally by daily traffic
     const totalDaily = rawCounts.reduce((s, r) => s + r.daily, 0);
     let assigned = 0;
     for (const r of rawCounts) {
@@ -95,17 +98,16 @@ function allocateBusCounts(): Map<string, number> {
       counts.set(r.id, share);
       assigned += share;
     }
-    // Trim overflow from lowest-traffic routes
     if (assigned > MAX_TOTAL_BUSES) {
       const sorted = [...counts.entries()].sort((a, b) => {
         const aDaily = rawCounts.find(r => r.id === a[0])!.daily;
         const bDaily = rawCounts.find(r => r.id === b[0])!.daily;
-        return aDaily - bDaily; // lowest traffic first
+        return aDaily - bDaily;
       });
       let excess = assigned - MAX_TOTAL_BUSES;
       for (const [id, count] of sorted) {
         if (excess <= 0) break;
-        const reduce = Math.min(count - 1, excess); // keep at least 1
+        const reduce = Math.min(count - 1, excess);
         counts.set(id, count - reduce);
         excess -= reduce;
       }
@@ -115,47 +117,69 @@ function allocateBusCounts(): Map<string, number> {
   return counts;
 }
 
-// Create initial buses for all routes
+// Pre-compute route metadata for fast lookup during ticks
+interface RouteInfo {
+  route: DataRoute;
+  cumDists: number[];
+  progressPerTick: number;
+  busCount: number;
+  minGap: number;          // 1.0 / busCount
+  avgSpeedKmH: number;
+}
+
+let routeInfoCache: Map<string, RouteInfo> | null = null;
+
+function getRouteInfoMap(busCounts: Map<string, number>): Map<string, RouteInfo> {
+  if (routeInfoCache) return routeInfoCache;
+
+  const map = new Map<string, RouteInfo>();
+  for (const route of ALL_ROUTES) {
+    if (route.stops.length < 2) continue;
+    const count = busCounts.get(route.id) || 1;
+    map.set(route.id, {
+      route,
+      cumDists: getSegmentDistances(route.stops),
+      progressPerTick: getProgressPerTick(route.distanceKm),
+      busCount: count,
+      minGap: 1.0 / count,
+      avgSpeedKmH: route.distanceKm / (route.estimatedTravelTimeMin / 60),
+    });
+  }
+  routeInfoCache = map;
+  return map;
+}
+
 function createInitialBuses(): SimulatedBus[] {
   const buses: SimulatedBus[] = [];
   const busCounts = allocateBusCounts();
+  const infoMap = getRouteInfoMap(busCounts);
 
-  for (const route of ALL_ROUTES) {
-    if (route.stops.length < 2) continue;
+  for (const [routeId, info] of infoMap) {
+    for (let i = 0; i < info.busCount; i++) {
+      // Perfect even spacing: i / N
+      const progress = (i / info.busCount) + 0.01; // tiny offset from 0.0
 
-    const count = busCounts.get(route.id) || 1;
-    const cumDists = getSegmentDistances(route.stops);
-    const avgSpeed = route.distanceKm / (route.estimatedTravelTimeMin / 60); // km/h
+      const pos = interpolatePosition(info.route.stops, info.cumDists, progress);
+      const nextStopName = info.route.stops[pos.nextStopIdx]?.name ||
+        info.route.stops[info.route.stops.length - 1].name;
 
-    for (let i = 0; i < count; i++) {
-      // Even spacing: i/N with small random offset (±0.03)
-      const baseProgress = i / count;
-      const jitter = (Math.random() - 0.5) * 0.06; // ±0.03
-      const progress = Math.max(0.01, Math.min(0.99, baseProgress + jitter));
-
-      const pos = interpolatePosition(route.stops, cumDists, progress);
-      const nextStopName = route.stops[pos.nextStopIdx]?.name || route.stops[route.stops.length - 1].name;
-
-      // Remaining progress to terminal
       const remainingProgress = 1 - progress;
-      const etaMin = remainingProgress * route.estimatedTravelTimeMin;
-
-      // Speed variation: ±20%
-      const speed = avgSpeed * (0.8 + Math.random() * 0.4);
+      const etaMin = remainingProgress * info.route.estimatedTravelTimeMin;
 
       buses.push({
-        id: `sim-${route.id}-${i + 1}`,
-        routeId: route.id,
-        routeCode: route.code,
-        routeName: route.shortName,
-        routeColor: route.color,
+        id: `sim-${routeId}-${i + 1}`,
+        routeId,
+        routeCode: info.route.code,
+        routeName: info.route.shortName,
+        routeColor: info.route.color,
         latitude: pos.lat,
         longitude: pos.lng,
         progress,
-        speedKmH: Math.round(speed),
+        speedKmH: Math.round(info.avgSpeedKmH),
         nextStop: nextStopName,
         estimatedArrivalMin: Math.round(etaMin * 10) / 10,
-        isDeviating: Math.random() < 0.1, // 10% chance deviating
+        isDeviating: false,
+        held: false,
       });
     }
   }
@@ -163,9 +187,19 @@ function createInitialBuses(): SimulatedBus[] {
   return buses;
 }
 
-// Advance all buses by one tick, with anti-bunching logic
+/**
+ * Advance all buses by one tick with strict spacing enforcement.
+ *
+ * 1. Group by route, sort by progress
+ * 2. Move all at the SAME constant speed (no randomness)
+ * 3. Enforce minimum gap between consecutive buses
+ * 4. Hold buses at terminal if no space to reset
+ */
 function advanceBuses(buses: SimulatedBus[]): SimulatedBus[] {
-  // Group buses by route for proximity checks
+  const busCounts = allocateBusCounts();
+  const infoMap = getRouteInfoMap(busCounts);
+
+  // Group by route
   const byRoute = new Map<string, SimulatedBus[]>();
   for (const bus of buses) {
     const arr = byRoute.get(bus.routeId) || [];
@@ -173,67 +207,86 @@ function advanceBuses(buses: SimulatedBus[]): SimulatedBus[] {
     byRoute.set(bus.routeId, arr);
   }
 
-  return buses.map(bus => {
-    const route = ALL_ROUTES.find(r => r.id === bus.routeId);
-    if (!route || route.stops.length < 2) return bus;
+  const result: SimulatedBus[] = [];
 
-    // Base advancement: 0.002 to 0.005 per tick (3 sec)
-    let delta = 0.002 + Math.random() * 0.003;
+  for (const [routeId, routeBuses] of byRoute) {
+    const info = infoMap.get(routeId);
+    if (!info) { result.push(...routeBuses); continue; }
 
-    // Deviating buses move slower
-    if (bus.isDeviating) delta *= 0.5;
+    const delta = info.progressPerTick;
 
-    // Anti-bunching: check distance to neighbors on same route
-    const siblings = byRoute.get(bus.routeId) || [];
-    for (const other of siblings) {
-      if (other.id === bus.id) continue;
-      const gap = other.progress - bus.progress;
-      // Bus ahead within 0.05 progress — slow down this bus
-      if (gap > 0 && gap < 0.05) {
-        delta *= 0.4;
-        break;
+    // Sort ascending by progress
+    routeBuses.sort((a, b) => a.progress - b.progress);
+
+    // Step 1: Advance each bus by the constant delta
+    const newProgresses: number[] = routeBuses.map(bus => {
+      if (bus.held) return bus.progress; // held buses don't move yet
+      return bus.progress + delta;
+    });
+
+    // Step 2: Handle resets and terminal holds
+    for (let i = 0; i < newProgresses.length; i++) {
+      if (newProgresses[i] >= 0.98) {
+        // Check if any other bus is near 0.0 (within minGap)
+        const nearStart = newProgresses.some((p, j) =>
+          j !== i && p < info.minGap * 0.7
+        );
+        if (nearStart) {
+          // Hold at 0.98 — can't reset yet
+          newProgresses[i] = 0.98;
+        } else if (newProgresses[i] >= 1.0) {
+          // Safe to reset
+          newProgresses[i] = 0.01;
+        }
       }
-      // Bus behind within 0.05 progress — speed up this bus
-      if (gap < 0 && gap > -0.05) {
-        delta *= 1.5;
-        break;
+    }
+
+    // Step 3: Sort again (reset buses jumped to start)
+    const indexed = newProgresses.map((p, i) => ({ idx: i, progress: p }));
+    indexed.sort((a, b) => a.progress - b.progress);
+
+    // Step 4: Enforce minimum gap between consecutive buses
+    const minEnforced = info.minGap * 0.6;
+    for (let k = 1; k < indexed.length; k++) {
+      const gap = indexed[k].progress - indexed[k - 1].progress;
+      if (gap < minEnforced) {
+        // Push the later bus forward to maintain gap
+        indexed[k].progress = Math.min(0.98, indexed[k - 1].progress + minEnforced);
       }
     }
 
-    let newProgress = bus.progress + delta;
+    // Step 5: Write back final progress values and compute positions
+    for (const entry of indexed) {
+      const bus = routeBuses[entry.idx];
+      const newProgress = Math.max(0.01, Math.min(0.98, entry.progress));
+      const held = entry.progress >= 0.98 && bus.progress >= 0.97;
 
-    // Reset when reaching end (round trip)
-    if (newProgress >= 1.0) {
-      newProgress = 0.01;
+      const pos = interpolatePosition(info.route.stops, info.cumDists, newProgress);
+      const nextStopName = info.route.stops[pos.nextStopIdx]?.name ||
+        info.route.stops[info.route.stops.length - 1].name;
+
+      const remainingProgress = 1 - newProgress;
+      const etaMin = remainingProgress * info.route.estimatedTravelTimeMin;
+
+      // 3% chance to toggle deviating (visual only, no speed effect)
+      let isDeviating = bus.isDeviating;
+      if (Math.random() < 0.03) isDeviating = !isDeviating;
+
+      result.push({
+        ...bus,
+        progress: newProgress,
+        latitude: pos.lat,
+        longitude: pos.lng,
+        nextStop: nextStopName,
+        estimatedArrivalMin: Math.round(etaMin * 10) / 10,
+        speedKmH: Math.round(held ? 0 : info.avgSpeedKmH),
+        isDeviating,
+        held,
+      });
     }
+  }
 
-    const cumDists = getSegmentDistances(route.stops);
-    const pos = interpolatePosition(route.stops, cumDists, newProgress);
-    const nextStopName = route.stops[pos.nextStopIdx]?.name || route.stops[route.stops.length - 1].name;
-
-    const remainingProgress = 1 - newProgress;
-    const etaMin = remainingProgress * route.estimatedTravelTimeMin;
-
-    const avgSpeed = route.distanceKm / (route.estimatedTravelTimeMin / 60);
-    const speed = avgSpeed * (bus.isDeviating ? 0.5 : (0.85 + Math.random() * 0.3));
-
-    // Small chance to toggle deviating status
-    let isDeviating = bus.isDeviating;
-    if (Math.random() < 0.02) {
-      isDeviating = !isDeviating;
-    }
-
-    return {
-      ...bus,
-      progress: newProgress,
-      latitude: pos.lat,
-      longitude: pos.lng,
-      nextStop: nextStopName,
-      estimatedArrivalMin: Math.round(etaMin * 10) / 10,
-      speedKmH: Math.round(speed),
-      isDeviating,
-    };
-  });
+  return result;
 }
 
 /**
