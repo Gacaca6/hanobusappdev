@@ -183,7 +183,8 @@ export default function BottomSheet() {
 
   return (
     <motion.div
-      className="fixed bottom-16 left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-40 overflow-hidden"
+      className="fixed left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-40 overflow-hidden"
+      style={{ bottom: 'calc(70px + env(safe-area-inset-bottom, 8px))' }}
       initial={{ y: 'calc(100% - 200px)' }}
       animate={{ y: isOpen ? '0%' : 'calc(100% - 200px)' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}

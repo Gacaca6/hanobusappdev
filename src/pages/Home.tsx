@@ -160,7 +160,7 @@ export default function Home() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-gray-100">
       {/* Top Navigation Bar */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-4 flex justify-between items-center pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 z-10 p-4 flex justify-between items-center pointer-events-none" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
         <div className="bg-white/90 backdrop-blur-sm rounded-full shadow-md px-4 py-2.5 pointer-events-auto">
           <span className="text-base font-extrabold text-blue-600 tracking-tight">Hano<span className="text-gray-800">Bus</span></span>
         </div>
@@ -179,7 +179,7 @@ export default function Home() {
 
       {/* Location denied banner */}
       {locationDenied && showLocationBanner && (
-        <div className="absolute top-20 left-4 right-4 z-10 pointer-events-auto">
+        <div className="absolute left-4 right-4 z-10 pointer-events-auto" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 80px)' }}>
           <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-gray-500 shrink-0" />
@@ -194,7 +194,7 @@ export default function Home() {
 
       {/* Nearby Buses Quick Info */}
       {nearestBuses.length > 0 && !showBusCard && !locationDenied && (
-        <div className="absolute top-20 left-4 right-4 z-10 pointer-events-auto">
+        <div className="absolute left-4 right-4 z-10 pointer-events-auto" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 80px)' }}>
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('nearbyBuses')}</h3>
@@ -282,7 +282,7 @@ export default function Home() {
 
       {/* Selected Bus Detail Card */}
       {showBusCard && selectedBusData && (
-        <div className="absolute bottom-20 left-4 right-4 z-10 pointer-events-auto">
+        <div className="absolute left-4 right-4 z-10 pointer-events-auto" style={{ bottom: 'calc(env(safe-area-inset-bottom, 8px) + 80px)' }}>
           <div className="bg-white rounded-2xl shadow-xl p-4 border border-gray-100">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">

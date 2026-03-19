@@ -168,7 +168,7 @@ export default function RoutesPage() {
 
   return (
     <div className="min-h-full bg-gray-50 flex flex-col">
-      <div className="bg-blue-600 px-6 pt-12 pb-6 text-white shadow-md">
+      <div className="bg-blue-600 px-6 pb-6 text-white shadow-md" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
         <h1 className="text-2xl font-bold">{t('busRoutes')}</h1>
         <p className="text-blue-100 mt-1">{t('findYourWay')}</p>
       </div>

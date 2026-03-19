@@ -123,7 +123,8 @@ export default function RouteDetailPage() {
     <div className="min-h-full bg-gray-50 flex flex-col">
       {/* Header with route color bar */}
       <div className="relative">
-        {/* Color bar at top */}
+        {/* Safe area spacer + Color bar at top */}
+        <div className="bg-white" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
         <div className="h-1.5 w-full" style={{ backgroundColor: route.color }} />
 
         <div className="bg-white px-4 pt-4 pb-4 shadow-sm">

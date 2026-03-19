@@ -62,7 +62,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-full bg-gray-50 flex flex-col">
-      <div className="bg-blue-600 px-6 pt-12 pb-8 text-white shadow-md">
+      <div className="bg-blue-600 px-6 pb-8 text-white shadow-md" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
         <h1 className="text-2xl font-bold mb-6">{t('profileTitle')}</h1>
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 bg-white/20 rounded-full flex items-center justify-center overflow-hidden border-2 border-white/50">
@@ -153,7 +153,7 @@ export default function ProfilePage() {
 
         {/* Coming Soon Toast */}
         {toast && (
-          <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium animate-bounce">
+          <div className="fixed left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium animate-bounce" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
             {t('comingSoon')}
           </div>
         )}

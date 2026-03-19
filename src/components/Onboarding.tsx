@@ -65,7 +65,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col" style={{ height: '100dvh' }}>
       {/* Skip button */}
-      <div className="flex justify-end p-4">
+      <div className="flex justify-end p-4" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
         {!isLast && (
           <button
             onClick={handleSkip}
