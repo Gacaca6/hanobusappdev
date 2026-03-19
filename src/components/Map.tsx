@@ -229,18 +229,17 @@ function FallbackMap(props: MapProps) {
   const { searchedLocation, busStops, routePolyline, routes } = useStore();
   const mapRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const busMarkersRef = useRef<any[]>([]);
+  const staticMarkersRef = useRef<any[]>([]);
   const polylineRef = useRef<any>(null);
   const leafletRef = useRef<any>(null);
+  const lastCenterRef = useRef<string>('');
   const [mapReady, setMapReady] = React.useState(false);
 
   const defaultCenter: [number, number] = [-1.9441, 30.0619];
-  const center = searchedLocation
-    ? [searchedLocation.lat, searchedLocation.lng] as [number, number]
-    : userLocation || defaultCenter;
 
+  // Initialize Leaflet map ONCE
   useEffect(() => {
-    // Dynamic import of Leaflet
     let cancelled = false;
     (async () => {
       const L = (await import('leaflet')).default;
@@ -248,10 +247,8 @@ function FallbackMap(props: MapProps) {
 
       if (cancelled || mapInstanceRef.current) return;
 
-      // Store Leaflet reference for the markers useEffect
       leafletRef.current = L;
 
-      // Fix Leaflet default icon paths (bundler breaks them)
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -260,9 +257,14 @@ function FallbackMap(props: MapProps) {
       });
 
       const map = L.map(mapRef.current!, {
-        center: center,
+        center: defaultCenter,
         zoom: 14,
         zoomControl: false,
+        // No maxBounds — allow free panning
+        dragging: true,
+        touchZoom: true,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -270,6 +272,12 @@ function FallbackMap(props: MapProps) {
       }).addTo(map);
 
       mapInstanceRef.current = map;
+
+      // PWA standalone mode: invalidateSize after layout settles
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 300);
+
       setMapReady(true);
     })();
 
@@ -282,29 +290,27 @@ function FallbackMap(props: MapProps) {
     };
   }, []);
 
+  // Update static markers (stops, user location, search destination) — only when they change
   useEffect(() => {
     if (!mapReady) return;
     const map = mapInstanceRef.current;
-    if (!map) return;
-
     const L = leafletRef.current;
-    if (!L) return;
+    if (!map || !L) return;
 
-    // Clear old markers
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
+    // Clear old static markers
+    staticMarkersRef.current.forEach(m => m.remove());
+    staticMarkersRef.current = [];
 
     // User location
     if (userLocation) {
       const marker = L.circleMarker(userLocation, {
         radius: 8, fillColor: '#3b82f6', fillOpacity: 1, color: 'white', weight: 3,
       }).addTo(map);
-      markersRef.current.push(marker);
+      staticMarkersRef.current.push(marker);
     }
 
-    // Bus stops — small subtle dots (terminals slightly larger with route color)
+    // Bus stops — small subtle dots
     busStops.forEach(stop => {
-      // Check if this stop is a terminal for any route
       const isTerminal = ALL_ROUTES.some(r =>
         r.stops.some(s => s.name === stop.name && s.isTerminal)
       );
@@ -319,10 +325,29 @@ function FallbackMap(props: MapProps) {
         color: 'white',
         weight: isTerminal ? 2 : 1,
       }).addTo(map).bindPopup(`<b>${stop.name}</b><br/>Bus Stop`);
-      markersRef.current.push(marker);
+      staticMarkersRef.current.push(marker);
     });
 
-    // Buses — labeled pill markers with route color
+    // Search destination
+    if (searchedLocation) {
+      const marker = L.circleMarker([searchedLocation.lat, searchedLocation.lng], {
+        radius: 10, fillColor: '#ef4444', fillOpacity: 1, color: 'white', weight: 3,
+      }).addTo(map).bindPopup(`<b>${searchedLocation.name}</b>`);
+      staticMarkersRef.current.push(marker);
+    }
+  }, [mapReady, userLocation, busStops, searchedLocation]);
+
+  // Update bus markers ONLY — runs every 3s, does NOT touch the view
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = mapInstanceRef.current;
+    const L = leafletRef.current;
+    if (!map || !L) return;
+
+    // Clear old bus markers only
+    busMarkersRef.current.forEach(m => m.remove());
+    busMarkersRef.current = [];
+
     buses.forEach(bus => {
       const color = bus.routeColor || (bus.isDeviating ? '#f97316' : '#22c55e');
       const routeName = bus.routeName || routes.find(r => r.id === bus.routeId)?.shortName || bus.routeId;
@@ -351,18 +376,18 @@ function FallbackMap(props: MapProps) {
           `</div>`
         );
       marker.on('click', () => onBusClick?.(bus));
-      markersRef.current.push(marker);
+      busMarkersRef.current.push(marker);
     });
+  }, [mapReady, buses, routes, onBusClick]);
 
-    // Search destination
-    if (searchedLocation) {
-      const marker = L.circleMarker([searchedLocation.lat, searchedLocation.lng], {
-        radius: 10, fillColor: '#ef4444', fillOpacity: 1, color: 'white', weight: 3,
-      }).addTo(map).bindPopup(`<b>${searchedLocation.name}</b>`);
-      markersRef.current.push(marker);
-    }
+  // Handle map view changes — ONLY when center/polyline explicitly changes
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = mapInstanceRef.current;
+    const L = leafletRef.current;
+    if (!map || !L) return;
 
-    // Only show a route polyline when explicitly selected (not all 27 by default)
+    // Handle polyline
     if (polylineRef.current) {
       polylineRef.current.remove();
       polylineRef.current = null;
@@ -372,10 +397,30 @@ function FallbackMap(props: MapProps) {
         color: '#3b82f6', weight: 4, opacity: 0.8,
       }).addTo(map);
       map.fitBounds(polylineRef.current.getBounds(), { padding: [50, 50] });
-    } else {
-      map.setView(center, 14);
+      lastCenterRef.current = 'polyline';
+      return;
     }
-  }, [mapReady, userLocation, buses, busStops, searchedLocation, routePolyline, routes, center]);
+
+    // Pan to searched location (only when it changes)
+    if (searchedLocation) {
+      const key = `search-${searchedLocation.lat}-${searchedLocation.lng}`;
+      if (lastCenterRef.current !== key) {
+        map.setView([searchedLocation.lat, searchedLocation.lng], 15);
+        lastCenterRef.current = key;
+      }
+      return;
+    }
+
+    // Pan to user location (only first time we get it)
+    if (userLocation) {
+      const key = `user-${userLocation[0].toFixed(4)}-${userLocation[1].toFixed(4)}`;
+      if (lastCenterRef.current !== key && lastCenterRef.current === '') {
+        map.setView(userLocation, 14);
+        lastCenterRef.current = key;
+      }
+      return;
+    }
+  }, [mapReady, routePolyline, searchedLocation, userLocation]);
 
   return (
     <div className="w-full h-full absolute inset-0 z-0">
