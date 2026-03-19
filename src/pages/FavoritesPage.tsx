@@ -29,6 +29,12 @@ export default function FavoritesPage() {
   const [selectedStop, setSelectedStop] = useState('');
   const [loading, setLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     if (favorites.length > 0) {
@@ -58,8 +64,10 @@ export default function FavoritesPage() {
       setNewFav({ name: '', address: '', type: 'other' });
       setSelectedStop('');
       setShowAdd(false);
+      showToast('Favorite saved!', 'success');
     } catch (error) {
       console.error('Error adding favorite:', error);
+      showToast('Failed to save. Check your connection.', 'error');
     } finally {
       setLoading(false);
     }
@@ -69,8 +77,10 @@ export default function FavoritesPage() {
     if (!user) return;
     try {
       await removeFavorite(user.uid, favId);
+      showToast('Favorite removed', 'success');
     } catch (error) {
       console.error('Error removing favorite:', error);
+      showToast('Failed to remove. Try again.', 'error');
     }
   };
 
@@ -92,6 +102,14 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-full bg-gray-50 flex flex-col">
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed top-12 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold text-white transition-all ${
+          toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`} style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
+          {toast.message}
+        </div>
+      )}
       <div className="bg-blue-600 px-6 pb-6 text-white shadow-md flex justify-between items-center" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
         <div>
           <h1 className="text-2xl font-bold">{t('favorites')}</h1>

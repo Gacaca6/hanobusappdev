@@ -141,10 +141,13 @@ service cloud.firestore {
     }
 
     function isValidFavorite(data, userId) {
-      return hasRequiredFields(['userId', 'routeId', 'savedAt']) &&
-             data.userId == userId &&
-             data.routeId is string && data.routeId.size() > 0 && data.routeId.size() < 100 &&
-             data.savedAt is timestamp;
+      return hasRequiredFields(['name', 'address', 'latitude', 'longitude', 'type', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.address is string && data.address.size() > 0 && data.address.size() < 300 &&
+             data.latitude is number && data.latitude >= -90 && data.latitude <= 90 &&
+             data.longitude is number && data.longitude >= -180 && data.longitude <= 180 &&
+             data.type in ['home', 'work', 'other', 'route'] &&
+             data.createdAt is timestamp;
     }
 
     // ===============================================================

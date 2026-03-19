@@ -58,13 +58,19 @@ export default function RouteDetailPage() {
   const { buses, busStops, favorites, user } = useStore();
   const { t } = useTranslation();
   const [favLoading, setFavLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const route = useMemo(() => ALL_ROUTES.find(r => r.id === routeId), [routeId]);
 
   // Check if this route is already favorited
   const existingFav = useMemo(() => {
     if (!route) return null;
-    return favorites.find(f => f.name === route.shortName && (f as any).type === 'route') || null;
+    return favorites.find(f => f.name === route.shortName && f.type === 'route') || null;
   }, [favorites, route]);
 
   const isFavorited = !!existingFav;
@@ -75,17 +81,20 @@ export default function RouteDetailPage() {
     try {
       if (existingFav) {
         await removeFavorite(user.uid, existingFav.id);
+        showToast('Removed from favorites', 'success');
       } else {
         await addFavorite(user.uid, {
           name: route.shortName,
           address: route.name,
-          type: 'other' as const,
+          type: 'route',
           latitude: route.stops[0].lat,
           longitude: route.stops[0].lng,
         });
+        showToast('Added to favorites!', 'success');
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
+      showToast('Failed to save favorite. Check your connection.', 'error');
     } finally {
       setFavLoading(false);
     }
@@ -121,6 +130,14 @@ export default function RouteDetailPage() {
 
   return (
     <div className="min-h-full bg-gray-50 flex flex-col">
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed top-12 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold text-white transition-all ${
+          toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`} style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
+          {toast.message}
+        </div>
+      )}
       {/* Header with route color bar */}
       <div className="relative">
         {/* Safe area spacer + Color bar at top */}

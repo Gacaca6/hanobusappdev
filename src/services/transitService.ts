@@ -59,7 +59,7 @@ export interface Favorite {
   address: string;
   latitude: number;
   longitude: number;
-  type: 'home' | 'work' | 'other';
+  type: 'home' | 'work' | 'other' | 'route';
   createdAt: Timestamp;
 }
 
