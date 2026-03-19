@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { useStore } from '../store/useStore';
 import { ALL_ROUTES } from '../data/hanobus_routes';
@@ -101,22 +101,30 @@ export default function MapComponent(props: MapProps) {
             </AdvancedMarker>
           )}
 
-          {/* Bus stops */}
+          {/* Bus stops — subtle small dots */}
           {busStops.map((stop) => {
-            const stopRoutes = stop.routeIds
-              ? routes.filter(r => stop.routeIds?.includes(r.id))
-              : [];
+            const isTerminal = ALL_ROUTES.some(r =>
+              r.stops.some(s => s.name === stop.name && s.isTerminal)
+            );
+            const terminalRoute = isTerminal
+              ? ALL_ROUTES.find(r => r.stops.some(s => s.name === stop.name && s.isTerminal))
+              : null;
             return (
               <AdvancedMarker
                 key={stop.id}
                 position={{ lat: stop.latitude, lng: stop.longitude }}
                 onClick={() => setSelectedStop(selectedStop?.id === stop.id ? null : stop)}
               >
-                <div className="flex flex-col items-center">
-                  <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full" />
-                  </div>
-                </div>
+                <div
+                  className="rounded-full border border-white"
+                  style={{
+                    width: isTerminal ? 10 : 6,
+                    height: isTerminal ? 10 : 6,
+                    backgroundColor: isTerminal && terminalRoute ? terminalRoute.color : '#9ca3af',
+                    opacity: isTerminal ? 0.9 : 0.6,
+                    boxShadow: isTerminal ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
+                  }}
+                />
               </AdvancedMarker>
             );
           })}
@@ -164,7 +172,7 @@ export default function MapComponent(props: MapProps) {
             </AdvancedMarker>
           )}
 
-          {/* Buses — colored by route */}
+          {/* Buses — labeled pill markers */}
           {buses.map((bus) => {
             const color = bus.routeColor || (bus.isDeviating ? '#f97316' : '#22c55e');
             return (
@@ -176,21 +184,22 @@ export default function MapComponent(props: MapProps) {
                   onBusClick?.(bus);
                 }}
               >
-                <div className="flex flex-col items-center">
-                  <div
-                    className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center border-2 border-white"
-                    style={{ backgroundColor: color }}
-                  >
-                    <span className="text-[9px] font-extrabold text-white">{bus.routeCode || '?'}</span>
-                  </div>
-                  {bus.eta && (
-                    <div
-                      className="px-1.5 py-0.5 rounded-full text-[9px] font-bold mt-0.5 shadow border border-white/50"
-                      style={{ backgroundColor: color + '20', color }}
-                    >
-                      {typeof bus.eta === 'number' ? Math.round(bus.eta) : bus.eta}m
-                    </div>
-                  )}
+                <div
+                  style={{
+                    background: color,
+                    color: 'white',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    whiteSpace: 'nowrap',
+                    border: '2px solid white',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                    textAlign: 'center',
+                    lineHeight: '14px',
+                  }}
+                >
+                  {bus.routeCode || '?'}
                 </div>
               </AdvancedMarker>
             );
@@ -301,34 +310,54 @@ function FallbackMap(props: MapProps) {
       markersRef.current.push(marker);
     }
 
-    // Bus stops
+    // Bus stops — small subtle dots (terminals slightly larger with route color)
     busStops.forEach(stop => {
+      // Check if this stop is a terminal for any route
+      const isTerminal = ALL_ROUTES.some(r =>
+        r.stops.some(s => s.name === stop.name && s.isTerminal)
+      );
+      const terminalRoute = isTerminal
+        ? ALL_ROUTES.find(r => r.stops.some(s => s.name === stop.name && s.isTerminal))
+        : null;
+
       const marker = L.circleMarker([stop.latitude, stop.longitude], {
-        radius: 6, fillColor: '#1d4ed8', fillOpacity: 1, color: 'white', weight: 2,
+        radius: isTerminal ? 5 : 3,
+        fillColor: isTerminal && terminalRoute ? terminalRoute.color : '#9ca3af',
+        fillOpacity: isTerminal ? 0.9 : 0.6,
+        color: 'white',
+        weight: isTerminal ? 2 : 1,
       }).addTo(map).bindPopup(`<b>${stop.name}</b><br/>Bus Stop`);
       markersRef.current.push(marker);
     });
 
-    // Buses — colored circles using route color
+    // Buses — labeled pill markers with route color
     buses.forEach(bus => {
       const color = bus.routeColor || (bus.isDeviating ? '#f97316' : '#22c55e');
       const routeName = bus.routeName || routes.find(r => r.id === bus.routeId)?.shortName || bus.routeId;
+      const code = bus.routeCode || '?';
       const busLabel = bus.id.replace('sim-', '').toUpperCase();
       const etaText = bus.eta ? (typeof bus.eta === 'number' ? Math.round(bus.eta) : bus.eta) : null;
-      const marker = L.circleMarker([bus.latitude, bus.longitude], {
-        radius: 8, fillColor: color, fillOpacity: 0.9, color: 'white', weight: 2,
-      }).addTo(map).bindPopup(
-        `<div style="font-family:sans-serif;">` +
-        `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">` +
-        `<div style="width:10px;height:10px;border-radius:50%;background:${color};"></div>` +
-        `<b>${routeName}</b></div>` +
-        `<span style="font-size:11px;color:#666;">Bus: ${busLabel}</span><br/>` +
-        `<span style="font-size:11px;color:#666;">Speed: ${Math.round(bus.speedKmH || 0)} km/h</span><br/>` +
-        `<span style="font-size:11px;color:#666;">Next: ${bus.nextStop}</span>` +
-        (etaText ? `<br/><b style="font-size:11px;color:#2563eb;">ETA to terminal: ${etaText} min</b>` : '') +
-        (bus.isDeviating ? `<br/><b style="font-size:11px;color:#f97316;">Heavy Traffic</b>` : '') +
-        `</div>`
-      );
+
+      const pillIcon = L.divIcon({
+        className: '',
+        html: `<div style="background:${color};color:white;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:10px;white-space:nowrap;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);text-align:center;line-height:14px;">${code}</div>`,
+        iconSize: [0, 0],
+        iconAnchor: [14, 9],
+      });
+
+      const marker = L.marker([bus.latitude, bus.longitude], { icon: pillIcon })
+        .addTo(map).bindPopup(
+          `<div style="font-family:sans-serif;">` +
+          `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">` +
+          `<div style="width:10px;height:10px;border-radius:50%;background:${color};"></div>` +
+          `<b>${routeName}</b></div>` +
+          `<span style="font-size:11px;color:#666;">Bus: ${busLabel}</span><br/>` +
+          `<span style="font-size:11px;color:#666;">Speed: ${Math.round(bus.speedKmH || 0)} km/h</span><br/>` +
+          `<span style="font-size:11px;color:#666;">Next: ${bus.nextStop}</span>` +
+          (etaText ? `<br/><b style="font-size:11px;color:#2563eb;">ETA: ${etaText} min</b>` : '') +
+          (bus.isDeviating ? `<br/><b style="font-size:11px;color:#f97316;">Heavy Traffic</b>` : '') +
+          `</div>`
+        );
       marker.on('click', () => onBusClick?.(bus));
       markersRef.current.push(marker);
     });
@@ -341,26 +370,14 @@ function FallbackMap(props: MapProps) {
       markersRef.current.push(marker);
     }
 
-    // Static route polylines from dataset (thin background lines)
-    ALL_ROUTES.forEach(route => {
-      const coords = route.stops.map(s => [s.lat, s.lng] as [number, number]);
-      if (coords.length >= 2) {
-        const line = L.polyline(coords, {
-          color: route.color, weight: 2, opacity: 0.4,
-        }).addTo(map);
-        line.bindPopup(`<b>${route.code}</b> ${route.shortName}`);
-        markersRef.current.push(line);
-      }
-    });
-
-    // Active search route polyline (on top, dashed)
+    // Only show a route polyline when explicitly selected (not all 27 by default)
     if (polylineRef.current) {
       polylineRef.current.remove();
       polylineRef.current = null;
     }
     if (routePolyline && routePolyline.length > 0) {
       polylineRef.current = L.polyline(routePolyline, {
-        color: '#3b82f6', weight: 5, opacity: 0.7, dashArray: '10, 10',
+        color: '#3b82f6', weight: 4, opacity: 0.8,
       }).addTo(map);
       map.fitBounds(polylineRef.current.getBounds(), { padding: [50, 50] });
     } else {

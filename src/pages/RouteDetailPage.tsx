@@ -349,10 +349,14 @@ export default function RouteDetailPage() {
                 <Timer className="w-4 h-4 text-blue-500" />
                 <span className="text-[10px] text-gray-500 uppercase">{t('estimatedWait')}</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">
-                {stats.waitMin !== null ? `${stats.waitMin}` : '---'}
-                <span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
-              </p>
+              {stats.waitMin !== null ? (
+                <p className="text-xl font-bold text-gray-900">
+                  {stats.waitMin}
+                  <span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
+                </p>
+              ) : (
+                <p className="text-sm font-bold text-orange-500">System busy</p>
+              )}
             </div>
 
             {/* Utilization */}
@@ -362,8 +366,10 @@ export default function RouteDetailPage() {
                 <span className="text-[10px] text-gray-500 uppercase">{t('systemLoad')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-xl font-bold text-gray-900">{stats.utilization}<span className="text-xs font-normal text-gray-400">%</span></p>
-                <div className={`w-3 h-3 rounded-full ${
+                <p className="text-xl font-bold text-gray-900">
+                  {Math.min(stats.utilization, 99)}<span className="text-xs font-normal text-gray-400">%</span>
+                </p>
+                <div className={`w-3 h-3 rounded-full animate-pulse ${
                   stats.utilization < 70 ? 'bg-green-500' :
                   stats.utilization < 85 ? 'bg-yellow-500' : 'bg-red-500'
                 }`} />
@@ -387,10 +393,14 @@ export default function RouteDetailPage() {
                 <Users className="w-4 h-4 text-orange-500" />
                 <span className="text-[10px] text-gray-500 uppercase">{t('inQueue')}</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">
-                {stats.queueSize !== null ? `${stats.queueSize}` : '---'}
-                <span className="text-xs font-normal text-gray-400 ml-0.5">pax</span>
-              </p>
+              {stats.queueSize !== null ? (
+                <p className="text-xl font-bold text-gray-900">
+                  {stats.queueSize}
+                  <span className="text-xs font-normal text-gray-400 ml-0.5">pax</span>
+                </p>
+              ) : (
+                <p className="text-sm font-bold text-orange-500">High demand</p>
+              )}
             </div>
           </div>
 
