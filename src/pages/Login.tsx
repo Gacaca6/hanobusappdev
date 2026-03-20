@@ -50,11 +50,17 @@ export default function Login() {
         }
       }
     } catch (error: any) {
-      console.error('Error signing in with Google', error);
+      console.error('Auth error:', error?.code, error?.message);
       if (error?.code === 'auth/unauthorized-domain') {
-        alert('Google sign-in is not configured for this domain. Use "Continue as Guest" to test the app.');
+        alert('This domain is not authorized for Google sign-in. Add "' + window.location.hostname + '" to Firebase Console → Authentication → Settings → Authorized domains. Use "Continue as Guest" for now.');
+      } else if (error?.code === 'auth/popup-closed-by-user') {
+        // User closed the popup — no error needed
+      } else if (error?.code === 'auth/operation-not-allowed') {
+        alert('Google sign-in is not enabled. Go to Firebase Console → Authentication → Sign-in method → enable Google. Use "Continue as Guest" for now.');
+      } else if (error?.code === 'auth/internal-error') {
+        alert('Firebase auth misconfiguration. Check that Google provider is enabled and OAuth consent screen is set up. Error: ' + (error?.message || ''));
       } else {
-        alert('Failed to sign in. Please try again.');
+        alert('Sign-in failed (' + (error?.code || 'unknown') + '). Use "Continue as Guest" to test the app.');
       }
     }
   };
