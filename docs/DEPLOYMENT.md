@@ -27,7 +27,7 @@ firebase deploy --only hosting
 - Set all env vars from `.env.example` in the host's dashboard.
 
 ### Deploy to Lovable (current demo)
-The live demo at [hano-route-reveal.lovable.app](https://hano-route-reveal.lovable.app/) is deployed via Lovable's GitHub integration — pushing to `main` triggers a redeploy automatically.
+The live demo at [hanobus.vercel.app](https://hanobus.vercel.app) is deployed via Vercel's GitHub integration — pushing to `main` triggers a redeploy automatically.
 
 ## 2. Firebase Cloud Functions
 

@@ -1,8 +1,5 @@
 <div align="center">
 
-<!-- HanoBus Logo / Banner -->
-<img src="./public/banner.png" alt="HanoBus Banner" width="800" onerror="this.style.display='none'"/>
-
 # HanoBus
 
 **Real-time public transport tracking for Kigali.**
@@ -12,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Web-lightgrey)](#)
 [![Made in Rwanda](https://img.shields.io/badge/made%20in-Rwanda-00A1DE)](#)
 
-[Live Demo](https://hano-route-reveal.lovable.app/) · [Report Bug](../../issues/new?template=bug_report.md) · [Request Feature](../../issues/new?template=feature_request.md)
+[Live Demo](https://hanobus.vercel.app) · [Report Bug](../../issues/new?template=bug_report.md) · [Request Feature](../../issues/new?template=feature_request.md)
 
 </div>
 
@@ -132,19 +129,9 @@ hanobus/
 
 </div>
 
-> Replace these placeholders with real screenshots in `public/screenshots/`.
-
-## Team
-
-| Name                 | Role            |
-|----------------------|-----------------|
-| **Gacaca Godwin**    | Lead Developer  |
-| **Uwase Furaha**     | Developer       |
-| **Nyiramugisha Safi**| Developer       |
-
 ## Live Demo
 
-🌍 **[hano-route-reveal.lovable.app](https://hano-route-reveal.lovable.app/)**
+🌍 **[hanobus.vercel.app](https://hanobus.vercel.app)**
 
 ## 📚 Documentation
 

@@ -85,7 +85,7 @@ Beyond time savings, HanoBus has second-order impact:
 
 ## Links
 
-- 🌍 **Live demo:** [hano-route-reveal.lovable.app](https://hano-route-reveal.lovable.app/)
+- 🌍 **Live demo:** [hanobus.vercel.app](https://hanobus.vercel.app)
 - 📖 **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - 🔌 **API reference:** [docs/API.md](./docs/API.md)
 - 🗄️ **Database schema:** [docs/DATABASE.md](./docs/DATABASE.md)
