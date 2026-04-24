@@ -188,7 +188,7 @@ export default function Home() {
 
   const selectedBusData = selectedBus
     ? busesWithETA.find(b => b.id === selectedBus.id) ||
-      (selectedBus as (typeof busesWithETA)[number])
+      (selectedBus as unknown as (typeof busesWithETA)[number])
     : null;
 
   return (
