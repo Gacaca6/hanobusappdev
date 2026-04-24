@@ -186,7 +186,10 @@ export default function Home() {
     setSelectedBus(null);
   };
 
-  const selectedBusData = selectedBus ? busesWithETA.find(b => b.id === selectedBus.id) || selectedBus : null;
+  const selectedBusData = selectedBus
+    ? busesWithETA.find(b => b.id === selectedBus.id) ||
+      (selectedBus as (typeof busesWithETA)[number])
+    : null;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-gray-100">
